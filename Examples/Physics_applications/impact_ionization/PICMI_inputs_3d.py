@@ -143,27 +143,27 @@ if deuterium_specifics['density'] == None:
 
 collisions = []
 
-# MCC collisions
-# https://github.com/ECP-WarpX/warpx-data/tree/master/MCC_cross_sections
-cross_sec_direc = '../../../warpx-data/MCC_cross_sections/He/' #Change this to reflect warpx-data location (note, only has He, Ar, and Xe)
+# # MCC collisions
+# # https://github.com/ECP-WarpX/warpx-data/tree/master/MCC_cross_sections
+# cross_sec_direc = '../../../warpx-data/MCC_cross_sections/He/' #Change this to reflect warpx-data location (note, only has He, Ar, and Xe)
 
-# https://warpx.readthedocs.io/en/latest/usage/python.html#pywarpx.picmi.MCCCollisions:~:text=pywarpx.picmi.MCCCollisions
-mcc_ions = picmi.MCCCollisions(
-    name='coll_ion',
-    species=deuterium,
-    background_density=N_INERT,
-    background_temperature=T_INERT,
-    background_mass=M_INERT,
-    scattering_processes={
-        'ionization' : {
-            'cross_section' : cross_sec_direc+'ionization.dat',
-            'species' : deuterium
-        },
-    }
-    electron_species=electrons
-)
+# # https://warpx.readthedocs.io/en/latest/usage/python.html#pywarpx.picmi.MCCCollisions:~:text=pywarpx.picmi.MCCCollisions
+# mcc_ions = picmi.MCCCollisions(
+#     name='coll_ion',
+#     species=deuterium,
+#     background_density=N_INERT,
+#     background_temperature=T_INERT,
+#     background_mass=M_INERT,
+#     scattering_processes={
+#         'ionization' : {
+#             'cross_section' : cross_sec_direc+'ionization.dat',
+#             'species' : deuterium
+#         },
+#     }
+#     electron_species=electrons
+# )
 
-collisions.append(mcc_ions)
+# collisions.append(mcc_ions)
 
 ##########################
 # simulation setup
@@ -264,7 +264,7 @@ theta = (theta_slice) + deuterium_specifics['injection_offset']
 x_pos = deuterium_specifics['injection_radius']*np.cos(theta)
 y_pos = deuterium_specifics['injection_radius']*np.sin(theta)
 
-if beams[key]['injection_direction'].is_integer():
+if deuterium_specifics['injection_direction'].is_integer():
     normal_vector = [y_pos * deuterium_specifics['injection_direction'],
                      -x_pos * deuterium_specifics['injection_direction'],0]
 else:
