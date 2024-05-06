@@ -265,7 +265,7 @@ public:
         amrex::ParticleReal const nu_max,
         amrex::ParserExecutor<4> const& n_a_func,
         amrex::Real t
-    ) : m_mcc_process(mcc_process.executor()), m_mass(mass),
+    ) : m_mcc_process(mcc_process.executor()), m_mass(mass1),
         m_total_collision_prob(total_collision_prob),
         m_nu_max(nu_max), m_n_a_func(n_a_func), m_t(t) { }
 
