@@ -1904,6 +1904,9 @@ class ElectrostaticSolver(picmistandard.PICMI_ElectrostaticSolver):
         # Open BC means FieldBoundaryType::Open for electrostatic sims, rather than perfectly-matched layer
         BC_map["open"] = "open"
 
+        # Open BC means FieldBoundaryType::Open for electrostatic sims, rather than perfectly-matched layer
+        BC_map['open'] = 'open'
+        
         self.grid.grid_initialize_inputs()
 
         # set adaptive timestepping parameters
@@ -1928,6 +1931,8 @@ class ElectrostaticSolver(picmistandard.PICMI_ElectrostaticSolver):
             pywarpx.boundary.potential_hi_x = self.grid.potential_xmax
             pywarpx.boundary.potential_hi_y = self.grid.potential_ymax
             pywarpx.boundary.potential_hi_z = self.grid.potential_zmax
+            
+        pywarpx.warpx.poisson_solver = self.method
 
         pywarpx.warpx.poisson_solver = self.method
 
