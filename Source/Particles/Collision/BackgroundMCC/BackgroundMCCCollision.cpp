@@ -368,6 +368,7 @@ void BackgroundMCCCollision::doBackgroundCollisionsWithinTile
     amrex::ParallelForRNG(np,
                           [=] AMREX_GPU_HOST_DEVICE (long ip, amrex::RandomEngine const& engine)
                           {
+                              
                               // determine if this particle should collide
                               if (amrex::Random(engine) > total_collision_prob) { return; }
 
@@ -414,9 +415,11 @@ void BackgroundMCCCollision::doBackgroundCollisionsWithinTile
                                   // calculate normalized collision frequency
                                   nu_i += n_a * sigma_E * v_coll / nu_max;
 
+                                  
                                   // check if this collision should be performed
                                   if (col_select > nu_i) { continue; }
 
+                                  
                                   // charge exchange is implemented as a simple swap of the projectile
                                   // and target velocities which doesn't require any of the Lorentz
                                   // transformations below; note that if the projectile and target

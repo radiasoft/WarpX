@@ -1934,8 +1934,6 @@ class ElectrostaticSolver(picmistandard.PICMI_ElectrostaticSolver):
             
         pywarpx.warpx.poisson_solver = self.method
 
-        pywarpx.warpx.poisson_solver = self.method
-
 
 class GaussianLaser(picmistandard.PICMI_GaussianLaser):
     def laser_initialize_inputs(self):
