@@ -415,10 +415,8 @@ void BackgroundMCCCollision::doBackgroundCollisionsWithinTile
                                   // calculate normalized collision frequency
                                   nu_i += n_a * sigma_E * v_coll / nu_max;
 
-                                  
                                   // check if this collision should be performed
                                   if (col_select > nu_i) { continue; }
-
                                   
                                   // charge exchange is implemented as a simple swap of the projectile
                                   // and target velocities which doesn't require any of the Lorentz
