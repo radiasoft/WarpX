@@ -2331,6 +2331,7 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         background_mass=None,
         max_background_density=None,
         ndt=None,
+        electron_species=None,
         **kw,
     ):
         self.name = name
@@ -2341,6 +2342,7 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         self.scattering_processes = scattering_processes
         self.max_background_density = max_background_density
         self.ndt = ndt
+        self.electron_species = electron_species
 
         self.handle_init(kw)
 
@@ -2363,6 +2365,8 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         collision.background_mass = self.background_mass
         collision.max_background_density = self.max_background_density
         collision.ndt = self.ndt
+        if self.electron_species is not None:
+            collision.electron_species = self.electron_species.name
 
         collision.scattering_processes = self.scattering_processes.keys()
         for process, kw in self.scattering_processes.items():
