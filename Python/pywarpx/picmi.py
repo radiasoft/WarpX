@@ -293,6 +293,9 @@ class Species(picmistandard.PICMI_Species):
         self.resampling_algorithm_target_weight = kw.pop(
             "warpx_resampling_algorithm_target_weight", None
         )
+        self.warpx_resampling_algorithm_target_ratio = kw.pop(
+            "warpx_resampling_algorithm_target_ratio", None
+        )
         self.resampling_algorithm_velocity_grid_type = kw.pop(
             "warpx_resampling_algorithm_velocity_grid_type", None
         )
