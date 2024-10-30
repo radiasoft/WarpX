@@ -21,6 +21,8 @@
 
 #include <string>
 
+#include <iostream>
+
 BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_name)
     : CollisionBase(collision_name)
 {
@@ -94,6 +96,7 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
     // create a vector of ScatteringProcess objects from each scattering
     // process name
     for (const auto& scattering_process : scattering_process_names) {
+        
         const std::string kw_cross_section = scattering_process + "_cross_section";
         std::string cross_section_file;
         pp_collision_name.query(kw_cross_section.c_str(), cross_section_file);
@@ -124,11 +127,10 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             ionization_flag = true;
 
             std::string secondary_species;
-            std::string source_species;
-            pp_collision_name.get("ionization_species", secondary_species); // this is what 'the electrons' produce from the background
-            pp_collision_name.get("ionizing_species", source_species); // this is to replace 'the electrons'
+            pp_collision_name.get("ionization_species", secondary_species);
             m_species_names.push_back(secondary_species);
-            m_species_names.push_back(source_species);
+            pp_collision_name.get("electron_species", secondary_species);
+            m_species_names.push_back(secondary_species);
 
             m_ionization_processes.push_back(std::move(process));
         } else {
@@ -216,18 +218,22 @@ BackgroundMCCCollision::doCollisions (amrex::Real cur_time, amrex::Real dt, Mult
     WARPX_PROFILE("BackgroundMCCCollision::doCollisions()");
     using namespace amrex::literals;
 
-    auto& species1 = mypc->GetParticleContainerFromName(m_species_names[0]); //secondary (for ionization)
-    auto& species2 = mypc->GetParticleContainerFromName(m_species_names[1]); //source
-    /**
-    // this is a very ugly hack to have species2 be a reference and be
+    auto& species1 = mypc->GetParticleContainerFromName(m_species_names[0]);
+    // this is a very ugly hack to have species2 and species3 be a reference and be
     // defined in the scope of doCollisions
+    // species2: ion species
     auto& species2 = (
-                      (m_species_names.size() == 2) ?
+                      (m_species_names.size() > 1) ?
                       mypc->GetParticleContainerFromName(m_species_names[1]) :
                       mypc->GetParticleContainerFromName(m_species_names[0])
                       );
-    **/
-    // did this make species 2 reference species 1? Species 1 was not electrons either...
+
+    // species3: electron species
+    auto& species3 = (
+                      (m_species_names.size() > 1) ?
+                      mypc->GetParticleContainerFromName(m_species_names[2]) :
+                      mypc->GetParticleContainerFromName(m_species_names[0])
+                      );
 
     if (!init_flag) {
         m_mass1 = species1.getMass(); //secondary
@@ -266,10 +272,7 @@ BackgroundMCCCollision::doCollisions (amrex::Real cur_time, amrex::Real dt, Mult
 
             // if an ionization process is included the secondary species mass
             // is taken as the background mass
-            // m_background_mass = species2.getMass();
-            // Commented this out as species2 was a copy of species1 (the background/ion)
-            //    but it is now source species
-            m_background_mass = species1.getMass();
+            m_background_mass = species2.getMass();
         }
         // if no neutral species mass was specified and ionization is not
         // included assume that the collisions will be with neutrals of the
@@ -319,7 +322,7 @@ BackgroundMCCCollision::doCollisions (amrex::Real cur_time, amrex::Real dt, Mult
 
         // secondly perform ionization through the SmartCopyFactory if needed
         if (ionization_flag) {
-            doBackgroundIonization(lev, cost, species1, species2, cur_time);
+            doBackgroundIonization(lev, cost, species1, species2, species3, cur_time);
         }
     }
 }
@@ -348,7 +351,7 @@ void BackgroundMCCCollision::doBackgroundCollisionsWithinTile
     auto const nu_max = m_nu_max;
 
     // store projectile and target masses
-    auto const m = m_mass1; // they say projectile, but if you track this back it is the background ion
+    auto const m = m_mass1;
     auto const M = m_background_mass;
 
     // precalculate often used value
@@ -480,20 +483,17 @@ void BackgroundMCCCollision::doBackgroundCollisionsWithinTile
 
 void BackgroundMCCCollision::doBackgroundIonization
 ( int lev, amrex::LayoutData<amrex::Real>* cost,
-  WarpXParticleContainer& species1, WarpXParticleContainer& species2, amrex::Real t)
+  WarpXParticleContainer& incident_species, WarpXParticleContainer& ion_species, WarpXParticleContainer& elec_species, amrex::Real t)
 {
     WARPX_PROFILE("BackgroundMCCCollision::doBackgroundIonization()");
 
-    // species1: secondary (for ionization)
-    // species2: source
-    
-    const SmartCopyFactory copy_factory_secondary(species1, species1);
-    const SmartCopyFactory copy_factory_source(species2, species2);
-    
-    const auto CopySecondary = copy_factory_secondary.getSmartCopy();
-    const auto CopySource = copy_factory_source.getSmartCopy();
+    const SmartCopyFactory copy_factory_elec(incident_species, elec_species);
+    const SmartCopyFactory copy_factory_ion(incident_species, ion_species);
+    const auto CopyElec = copy_factory_elec.getSmartCopy();
+    const auto CopyIon = copy_factory_ion.getSmartCopy();
 
-    const auto Filter = IonImpactIonizationFilterFunc(
+    // m_mass1: mass of the incident species
+    const auto Filter = ImpactIonizationFilterFunc(
                                                    m_ionization_processes[0],
                                                    m_mass1, m_total_collision_prob_ioniz,
                                                    m_nu_max_ioniz, m_background_density_func, t
@@ -504,7 +504,7 @@ void BackgroundMCCCollision::doBackgroundIonization
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
-    for (WarpXParIter pti(species1, lev); pti.isValid(); ++pti) { //is this iterating over species1? as the secondary it won't exist yet?
+    for (WarpXParIter pti(incident_species, lev); pti.isValid(); ++pti) {
 
         if (cost && WarpX::load_balance_costs_update_algo == LoadBalanceCostsUpdateAlgo::Timers)
         {
@@ -512,26 +512,21 @@ void BackgroundMCCCollision::doBackgroundIonization
         }
         auto wt = static_cast<amrex::Real>(amrex::second());
 
-        // auto& elec_tile = species1.ParticlesAt(lev, pti);
-        // auto& ion_tile = species2.ParticlesAt(lev, pti);
-        auto& secondary_tile = species1.ParticlesAt(lev, pti);
-        auto& source_tile = species2.ParticlesAt(lev, pti);
-        
-        // const auto np_elec = elec_tile.numParticles();
-        // const auto np_ion = ion_tile.numParticles();
-        const auto np_secondary = secondary_tile.numParticles();
-        const auto np_source = source_tile.numParticles();
-        
-        auto Transform = IonImpactIonizationTransformFunc(
+        auto& incident_tile = incident_species.ParticlesAt(lev, pti);
+        auto& elec_tile = elec_species.ParticlesAt(lev, pti);
+        auto& ion_tile = ion_species.ParticlesAt(lev, pti);
+
+        const auto np_elec = elec_tile.numParticles();
+        const auto np_ion = ion_tile.numParticles();
+
+        auto Transform = ImpactIonizationTransformFunc(
                                                        m_ionization_processes[0].getEnergyPenalty(),
                                                        m_mass1, sqrt_kb_m, m_background_temperature_func, t
                                                        );
 
-        // need to look into this function and see which is the produced elec tile so I can pass that,
-        // may need to edit this too: located in WarpX/Source/Particles/ParticleCreation/FilterCopyTransform.H
-        const auto num_added = filterCopyTransformParticles<1>(species1, species2,
-                                                               elec_tile, ion_tile, elec_tile, np_elec, np_ion,
-                                                               Filter, CopySource, CopySecondary, Transform
+        const auto num_added = filterCopyTransformParticles<1>(elec_species, ion_species,
+                                                               elec_tile, ion_tile, incident_tile, np_elec, np_ion,
+                                                               Filter, CopyElec, CopyIon, Transform
                                                                );
 
         // still need to get an elec_tile for the electrons? not sure where they get the elec tile...
