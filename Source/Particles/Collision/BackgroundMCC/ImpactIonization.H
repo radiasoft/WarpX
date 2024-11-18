@@ -94,6 +94,9 @@ public:
         const ParticleReal uz = ptd.m_rdata[PIdx::uz][i];
 
         // calculate kinetic energy
+        // TODO: this should probably be generalized, to calculate the energy in the center-of-mass frame
+        // (The WarpX documentation for the `cross_section` data file specifies that "The energy column
+        // should represent the kinetic energy of the colliding particles in the center-of-mass frame.")
         const ParticleReal u_coll2 = ux*ux + uy*uy + uz*uz;
         ParticleUtils::getEnergy(u_coll2, m_mass, E_coll);
 
@@ -183,6 +186,8 @@ public:
         // calculate standard deviation in neutral velocity distribution using
         // the local temperature
         const ParticleReal ion_vel_std = m_sqrt_kb_m * std::sqrt(m_T_a_func(x, y, z, m_t));
+        const ParticleReal elec_vel_std = std::sqrt(PhysConst::kb / PhysConst::m_e) * std::sqrt(m_T_a_func(x, y, z, m_t));
+
 
         // get references to the original particle's velocity
         auto& ux = src.m_rdata[PIdx::ux][i_src];
@@ -200,7 +205,6 @@ public:
         // calculate kinetic energy
         const ParticleReal u_coll2 = ux*ux + uy*uy + uz*uz;
         ParticleUtils::getEnergy(u_coll2, m_mass1, E_coll);
-        ParticleUtils::getEnergy(u_coll2, m_mass1, E_coll);
         
         // calculate unit vector of the incident species
         const amrex::ParticleReal x_unit = ux / sqrt(u_coll2);
@@ -211,13 +215,22 @@ public:
         // the ionized electron gets the other half of the available energy
         // TODO: This should be changed to encode the correct physics
         // const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost) / 2.0_prt * PhysConst::q_e);
-        const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost) * PhysConst::q_e);
+        
+        // E_coll == T_impact
+        const auto W_max = E_coll / 300.0_prt;
+        const auto W_elec = Random(engine)*W_max;
+        
+        // const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost) * PhysConst::q_e);
+        
+        const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost - W_elec) * PhysConst::q_e);
         constexpr auto c2 = PhysConst::c * PhysConst::c;
-        const auto mc2 = m_mass1*c2;
 
+        // Corresponding momentum of the incident species
+        const auto mc2 = m_mass1 * c2;
         const amrex::ParticleReal up = sqrt(E_out * (E_out + 2.0_prt*mc2) / c2) / m_mass1;
         // // isotropically scatter incident species
         // ParticleUtils::RandomizeVelocity(ux, uy, uz, up, engine);
+        
         // Use same unit vector as before collision, essentially turning off scattering
         ux = x_unit * up;
         uy = y_unit * up;
@@ -225,13 +238,24 @@ public:
 
         // Corresponding momentum of the electron species
         constexpr auto mc2_e = PhysConst::m_e * c2;
-        const amrex::ParticleReal up_e = 0.0; // sqrt(E_out * (E_out + 2.0_prt*mc2_e) / c2) / PhysConst::m_e;
-        // // isotropically scatter incident species
+        const amrex::ParticleReal up_e = sqrt(W_elec*PhysConst::q_e * (W_elec*PhysConst::q_e + 2.0_prt*mc2_e) / c2) / PhysConst::m_e;
+        // const amrex::ParticleReal up_e = 0.0;
+        // const amrex::ParticleReal up_e = sqrt(E_out * (E_out + 2.0_prt*mc2_e) / c2) / PhysConst::m_e;
+
+        // Define the velocity (magnitude) of the created electron as follows: v_total = v_elec + v_therm
+        //     where the magnitude of v_elec is the velocity associated with W_elec.
+        //     The magnitude of v_therm is an RMS expectation value, consistent with the specified 
+        // temperature of the neutral Ar gas.
+        const amrex::ParticleReal v_total = up_e + elec_vel_std;
+        
+        // isotropically scatter incident species
         // ParticleUtils::RandomizeVelocity(e_ux, e_uy, e_uz, up_e, engine);
-        // Use same unit vector as before collision, essentially turning off scattering
-        e_ux = x_unit * up_e;
-        e_uy = y_unit * up_e;
-        e_uz = z_unit * up_e;
+        ParticleUtils::RandomizeVelocity(e_ux, e_uy, e_uz, v_total, engine);
+        
+        // // Use same unit vector as before collision, essentially turning off scattering
+        // e_ux = x_unit * up_e;
+        // e_uy = y_unit * up_e;
+        // e_uz = z_unit * up_e;
         
         // get velocities for the ion from a Maxwellian distribution
         i_ux = ion_vel_std * RandomNormal(0_prt, 1.0_prt, engine);
