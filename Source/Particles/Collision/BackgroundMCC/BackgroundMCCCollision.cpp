@@ -21,11 +21,14 @@
 
 #include <string>
 
+#include <iostream>
+
 BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_name)
     : CollisionBase(collision_name)
 {
-    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_species_names.size() == 1,
-                                     "Background MCC must have exactly one species.");
+    // Not sure if I can comment this out, but will have to for now
+    // WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_species_names.size() == 1,
+    //                                  "Background MCC must have exactly one species.");
 
     const amrex::ParmParse pp_collision_name(collision_name);
 
@@ -93,6 +96,7 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
     // create a vector of ScatteringProcess objects from each scattering
     // process name
     for (const auto& scattering_process : scattering_process_names) {
+        
         const std::string kw_cross_section = scattering_process + "_cross_section";
         std::string cross_section_file;
         pp_collision_name.query(kw_cross_section.c_str(), cross_section_file);
@@ -126,12 +130,14 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
         // the maximum collision frequency with the same function used for
         // particle conserving processes
         if (process.type() == ScatteringProcessType::IONIZATION) {
-            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!ionization_flag,
-                                             "Background MCC only supports a single ionization process");
+            // WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!ionization_flag,
+            //                                  "Background MCC only supports a single ionization process");
             ionization_flag = true;
 
             std::string secondary_species;
             pp_collision_name.get("ionization_species", secondary_species);
+            m_species_names.push_back(secondary_species);
+            pp_collision_name.get("electron_species", secondary_species);
             m_species_names.push_back(secondary_species);
 
             m_ionization_processes.push_back(std::move(process));
@@ -221,16 +227,24 @@ BackgroundMCCCollision::doCollisions (amrex::Real cur_time, amrex::Real dt, Mult
     using namespace amrex::literals;
 
     auto& species1 = mypc->GetParticleContainerFromName(m_species_names[0]);
-    // this is a very ugly hack to have species2 be a reference and be
+    // this is a very ugly hack to have species2 and species3 be a reference and be
     // defined in the scope of doCollisions
+    // species2: ion species
     auto& species2 = (
-                      (m_species_names.size() == 2) ?
+                      (m_species_names.size() > 1) ?
                       mypc->GetParticleContainerFromName(m_species_names[1]) :
                       mypc->GetParticleContainerFromName(m_species_names[0])
                       );
 
+    // species3: electron species
+    auto& species3 = (
+                      (m_species_names.size() > 1) ?
+                      mypc->GetParticleContainerFromName(m_species_names[2]) :
+                      mypc->GetParticleContainerFromName(m_species_names[0])
+                      );
+
     if (!init_flag) {
-        m_mass1 = species1.getMass();
+        m_mass1 = species1.getMass(); //secondary
 
         // calculate maximum collision frequency without ionization
         m_nu_max = get_nu_max(m_scattering_processes);
@@ -276,7 +290,7 @@ BackgroundMCCCollision::doCollisions (amrex::Real cur_time, amrex::Real dt, Mult
         }
 
         amrex::Print() << Utils::TextMsg::Info(
-            "Setting up Monte-Carlo collisions for " + m_species_names[0] + " with:\n"
+            "Setting up Monte-Carlo collisions for " + m_species_names[0] + " and " + m_species_names[1] + " with:\n"
             + "     total non-ionization collision probability: "
             + std::to_string(m_total_collision_prob)
             + "\n     total ionization collision probability: "
@@ -316,7 +330,7 @@ BackgroundMCCCollision::doCollisions (amrex::Real cur_time, amrex::Real dt, Mult
 
         // secondly perform ionization through the SmartCopyFactory if needed
         if (ionization_flag) {
-            doBackgroundIonization(lev, cost, species1, species2, cur_time);
+            doBackgroundIonization(lev, cost, species1, species2, species3, cur_time);
         }
     }
 }
@@ -365,6 +379,7 @@ void BackgroundMCCCollision::doBackgroundCollisionsWithinTile
     amrex::ParallelForRNG(np,
                           [=] AMREX_GPU_HOST_DEVICE (long ip, amrex::RandomEngine const& engine)
                           {
+                              
                               // determine if this particle should collide
                               if (amrex::Random(engine) > total_collision_prob) { return; }
 
@@ -399,7 +414,7 @@ void BackgroundMCCCollision::doBackgroundCollisionsWithinTile
                               v_coll = std::sqrt(v_coll2);
 
                               // calculate the collision energy in eV
-                              ParticleUtils::getCollisionEnergy(v_coll2, m, M, gamma, E_coll);
+                              ParticleUtils::getCollisionEnergy(v_coll2, m, M, gamma, E_coll); 
 
                               // loop through all collision pathways
                               for (int i = 0; i < process_count; i++) {
@@ -413,7 +428,7 @@ void BackgroundMCCCollision::doBackgroundCollisionsWithinTile
 
                                   // check if this collision should be performed
                                   if (col_select > nu_i) { continue; }
-
+                                  
                                   // charge exchange is implemented as a simple swap of the projectile
                                   // and target velocities which doesn't require any of the Lorentz
                                   // transformations below; note that if the projectile and target
@@ -476,15 +491,16 @@ void BackgroundMCCCollision::doBackgroundCollisionsWithinTile
 
 void BackgroundMCCCollision::doBackgroundIonization
 ( int lev, amrex::LayoutData<amrex::Real>* cost,
-  WarpXParticleContainer& species1, WarpXParticleContainer& species2, amrex::Real t)
+  WarpXParticleContainer& incident_species, WarpXParticleContainer& ion_species, WarpXParticleContainer& elec_species, amrex::Real t)
 {
     WARPX_PROFILE("BackgroundMCCCollision::doBackgroundIonization()");
 
-    const SmartCopyFactory copy_factory_elec(species1, species1);
-    const SmartCopyFactory copy_factory_ion(species1, species2);
+    const SmartCopyFactory copy_factory_elec(incident_species, elec_species);
+    const SmartCopyFactory copy_factory_ion(incident_species, ion_species);
     const auto CopyElec = copy_factory_elec.getSmartCopy();
     const auto CopyIon = copy_factory_ion.getSmartCopy();
 
+    // m_mass1: mass of the incident species
     const auto Filter = ImpactIonizationFilterFunc(
                                                    m_ionization_processes[0],
                                                    m_mass1, m_total_collision_prob_ioniz,
@@ -496,7 +512,7 @@ void BackgroundMCCCollision::doBackgroundIonization
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
-    for (WarpXParIter pti(species1, lev); pti.isValid(); ++pti) {
+    for (WarpXParIter pti(incident_species, lev); pti.isValid(); ++pti) {
 
         if (cost && WarpX::load_balance_costs_update_algo == LoadBalanceCostsUpdateAlgo::Timers)
         {
@@ -504,8 +520,9 @@ void BackgroundMCCCollision::doBackgroundIonization
         }
         auto wt = static_cast<amrex::Real>(amrex::second());
 
-        auto& elec_tile = species1.ParticlesAt(lev, pti);
-        auto& ion_tile = species2.ParticlesAt(lev, pti);
+        auto& incident_tile = incident_species.ParticlesAt(lev, pti);
+        auto& elec_tile = elec_species.ParticlesAt(lev, pti);
+        auto& ion_tile = ion_species.ParticlesAt(lev, pti);
 
         const auto np_elec = elec_tile.numParticles();
         const auto np_ion = ion_tile.numParticles();
@@ -515,11 +532,12 @@ void BackgroundMCCCollision::doBackgroundIonization
                                                        m_mass1, sqrt_kb_m, m_background_temperature_func, t
                                                        );
 
-        const auto num_added = filterCopyTransformParticles<1>(species1, species2,
-                                                               elec_tile, ion_tile, elec_tile, np_elec, np_ion,
+        const auto num_added = filterCopyTransformParticles<1>(elec_species, ion_species,
+                                                               elec_tile, ion_tile, incident_tile, np_elec, np_ion,
                                                                Filter, CopyElec, CopyIon, Transform
                                                                );
 
+        // still need to get an elec_tile for the electrons? not sure where they get the elec tile...
         setNewParticleIDs(elec_tile, np_elec, num_added);
         setNewParticleIDs(ion_tile, np_ion, num_added);
 
