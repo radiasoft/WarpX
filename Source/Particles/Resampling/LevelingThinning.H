@@ -45,6 +45,12 @@ public:
     void BackwardCompatibility (const std::string& species_name );
 
     /**
+     * \brief A method that coarsens theta by a factor of 2
+     *
+     */
+    void coarsen();
+
+    /**
      * \brief A method that performs leveling thinning for the considered species.
      *
      * @param[in] pti WarpX particle iterator of the particles to resample.

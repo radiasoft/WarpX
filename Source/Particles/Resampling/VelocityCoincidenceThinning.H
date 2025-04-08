@@ -43,6 +43,12 @@ public:
     };
 
     /**
+     * \brief A method that coarsens theta by a factor of 2
+     *
+     */
+    void coarsen();
+
+    /**
      * \brief A method that performs merging for the considered species.
      *
      * @param[in] pti WarpX particle iterator of the particles to resample.
@@ -192,6 +198,7 @@ private:
 
     int m_min_ppc = 1;
     int m_ntheta, m_nphi;
+    int m_original_ntheta;
     amrex::ParticleReal m_delta_ur;
     amrex::Vector<amrex::ParticleReal> m_delta_u;
     amrex::ParticleReal m_cluster_weight = std::numeric_limits<amrex::ParticleReal>::max();

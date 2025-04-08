@@ -3209,6 +3209,17 @@ void PhysicalParticleContainer::resample (const int timestep, const bool verbose
     WARPX_PROFILE_VAR_STOP(blp_resample_synchronization);
 
     WARPX_PROFILE_VAR_START(blp_resample_actual);
+    // Add the new secondary trigger
+    if (m_resampler.coarsen_triggered(timestep, global_numparts))
+    {
+        //coarsen the resampler - for now fixed divide by 2 of m_ntheta
+        m_resampler.coarsen();
+
+        if (verbose) {
+            amrex::Print() << Utils::TextMsg::Info(
+                "Resampler coarsened at step " + std::to_string(timestep));
+        };
+    }
     if (m_resampler.triggered(timestep, global_numparts))
     {
         Redistribute();

@@ -27,6 +27,11 @@ struct ResamplingAlgorithm
     virtual void operator() (WarpXParIter& /*pti*/, int /*lev*/, WarpXParticleContainer* /*pc*/) const = 0;
 
     /**
+     * \brief Virtual coarsen() of the abstract ResamplingAlgorithm class
+     */
+    virtual void coarsen() = 0;
+
+    /**
      * \brief Virtual destructor of the abstract ResamplingAlgorithm class
      */
     virtual ~ResamplingAlgorithm () =  default;
@@ -72,6 +77,20 @@ public:
      * @param[in] global_numparts the total number of particles of the considered species
      */
     bool triggered (int timestep, amrex::Real global_numparts) const;
+
+    /**
+     * \brief A method that returns true if resampler should be coarsened (n_avg > 1.5 max)
+     *
+     * @param[in] timestep the current timestep
+     * @param[in] global_numparts the total number of particles of the considered species
+     */
+    bool coarsen_triggered (int timestep, amrex::Real global_numparts) const;
+
+    /**
+     * \brief A method that uses the ResamplingAlgorithm object to modify the resampling parameters.
+     *
+     */
+    void coarsen();
 
     /**
      * \brief A method that uses the ResamplingAlgorithm object to perform resampling.

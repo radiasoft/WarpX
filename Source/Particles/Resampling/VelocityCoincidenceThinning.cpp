@@ -44,6 +44,8 @@ VelocityCoincidenceThinning::VelocityCoincidenceThinning (const std::string& spe
         utils::parser::getWithParser(
             pp_species_name, "resampling_algorithm_n_theta", m_ntheta
         );
+        //create a copy
+        m_original_ntheta = m_ntheta;
         utils::parser::getWithParser(
             pp_species_name, "resampling_algorithm_n_phi", m_nphi
         );
@@ -59,6 +61,11 @@ VelocityCoincidenceThinning::VelocityCoincidenceThinning (const std::string& spe
     else {
         WARPX_ABORT_WITH_MESSAGE("Unkown velocity grid type.");
     }
+}
+
+void VelocityCoincidenceThinning::coarsen()
+{
+    m_ntheta /= 2;
 }
 
 void VelocityCoincidenceThinning::operator() (WarpXParIter& pti, const int lev,

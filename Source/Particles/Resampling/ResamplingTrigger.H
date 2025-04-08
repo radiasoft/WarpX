@@ -36,6 +36,14 @@ public:
     ResamplingTrigger (const std::string& species_name);
 
     /**
+     * \brief A method that returns true if resampler should be coarsened (n_avg > 1.5 max)
+     *
+     * @param[in] timestep the current timestep
+     * @param[in] global_numparts the total number of particles of the considered species
+     */
+    bool coarsen_triggered (int timestep, amrex::Real global_numparts) const;
+
+    /**
      * \brief A method that returns true if resampling should be done for the considered species
      * at the considered timestep.
      *

@@ -38,6 +38,16 @@ bool Resampling::triggered (const int timestep, const amrex::Real global_numpart
     return m_resampling_trigger.triggered(timestep, global_numparts);
 }
 
+bool Resampling::coarsen_triggered (const int timestep, const amrex::Real global_numparts) const
+{
+    return m_resampling_trigger.coarsen_triggered(timestep, global_numparts);
+}
+
+void Resampling::coarsen()
+{
+    m_resampling_algorithm->coarsen();
+}
+
 void Resampling::operator() (WarpXParIter& pti, const int lev, WarpXParticleContainer * const pc) const
 {
     (*m_resampling_algorithm)(pti, lev, pc);
