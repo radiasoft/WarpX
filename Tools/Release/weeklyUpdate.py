@@ -65,7 +65,7 @@ subprocess.run(["git", "checkout", "-b", update_branch], capture_output=True, te
 answers = concat_answers(["y", "", "", "y"])
 
 process = subprocess.Popen(
-    [Path(REPO_DIR).joinpath("Tools/Release/update_dependencies.py"), "--amrex"],
+    [Path(REPO_DIR).joinpath("Tools/Release/updateAMReX.py")],
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
@@ -88,11 +88,11 @@ subprocess.run(
 
 # PICSAR New Version ##########################################################
 
-PICSAR_version = "25.04"
+PICSAR_version = "25.01"
 answers = concat_answers(["y", PICSAR_version, PICSAR_version, "y"])
 
 process = subprocess.Popen(
-    [Path(REPO_DIR).joinpath("Tools/Release/update_dependencies.py"), "--picsar"],
+    [Path(REPO_DIR).joinpath("Tools/Release/updatePICSAR.py")],
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
@@ -120,7 +120,7 @@ subprocess.run(
 answers = concat_answers(["y", "", "", "y"])
 
 process = subprocess.Popen(
-    [Path(REPO_DIR).joinpath("Tools/Release/update_dependencies.py"), "--pyamrex"],
+    [Path(REPO_DIR).joinpath("Tools/Release/updatepyAMReX.py")],
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
@@ -163,13 +163,10 @@ Weekly update to latest pyAMReX{pyamrex_changes}.
 Weekly update to latest PICSAR{picsar_changes}.
 
 ```console
-./Tools/Release/update_dependencies.py --amrex
-./Tools/Release/update_dependencies.py --pyamrex
-./Tools/Release/update_dependencies.py --picsar
+./Tools/Release/updateAMReX.py
+./Tools/Release/updatepyAMReX.py
+./Tools/Release/updatePICSAR.py
 ```
-
-This pull request was created with the script `./Tools/Release/weeklyUpdate.py`,
-following the instructions described in https://warpx.readthedocs.io/en/latest/maintenance/release.html#update-warpx-core-dependencies.
 """,
         "--label",
         "component: documentation",

@@ -35,10 +35,6 @@
 #include <AMReX_RandomEngine.H>
 #include <AMReX_REAL.H>
 
-#ifdef WARPX_USE_OPENPMD
-#   include <openPMD/openPMD.hpp>
-#endif
-
 #include <algorithm>
 #include <cctype>
 #include <map>
@@ -66,13 +62,8 @@ PlasmaInjector::PlasmaInjector (int ispecies, const std::string& name,
 
     const amrex::ParmParse pp_species(species_name);
 
-#if defined(WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
-    // Default radial_numpercell_power is uniform number of particles per cell
-    radial_numpercell_power = 0._rt;
-    utils::parser::queryWithParser(pp_species, source_name, "radial_numpercell_power", radial_numpercell_power);
-    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(radial_numpercell_power > -1.,
-        "The radial_numpercell_power must be greater than -1");
-#endif
+    utils::parser::queryWithParser(pp_species, source_name, "radially_weighted", radially_weighted);
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(radially_weighted, "ERROR: Only radially_weighted=true is supported");
 
     // Unlimited boundaries
     xmin = std::numeric_limits<amrex::Real>::lowest();
@@ -94,7 +85,7 @@ PlasmaInjector::PlasmaInjector (int ispecies, const std::string& name,
 #       endif
     }
 
-#   if AMREX_SPACEDIM > 1
+#   ifndef WARPX_DIM_1D_Z
     if( geom.isPeriodic(1) ) {
 #       ifndef WARPX_DIM_3D
         zmin = geom.ProbLo(1);
@@ -267,10 +258,6 @@ void PlasmaInjector::setupGaussianBeam (amrex::ParmParse const& pp_species)
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE( y_rms > 0._rt,
         "Error: Gaussian beam y_rms must be strictly greater than 0 in 1D "
         "(it is used when computing the particles' weights from the total beam charge)");
-#elif defined(WARPX_DIM_RCYLINDER)
-    WARPX_ALWAYS_ASSERT_WITH_MESSAGE( z_rms > 0._rt,
-        "Error: Gaussian beam z_rms must be strictly greater than 0 with RCYLINDER "
-        "(it is used when computing the particles' weights from the total beam charge)");
 #endif
 }
 
@@ -337,7 +324,7 @@ void PlasmaInjector::setupNFluxPerCell (amrex::ParmParse const& pp_species)
         std::string flux_normal_axis_string;
         utils::parser::get(pp_species, source_name, "flux_normal_axis", flux_normal_axis_string);
         flux_normal_axis = -1;
-#if defined(WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
+#ifdef WARPX_DIM_RZ
         if      (flux_normal_axis_string == "r" || flux_normal_axis_string == "R") {
             flux_normal_axis = 0;
         }
@@ -356,22 +343,20 @@ void PlasmaInjector::setupNFluxPerCell (amrex::ParmParse const& pp_species)
             flux_normal_axis = 1;
         }
 #endif
-#if !defined(WARPX_DIM_RSPHERE) && !defined(WARPX_DIM_RCYLINDER)
         if (flux_normal_axis_string == "z" || flux_normal_axis_string == "Z") {
             flux_normal_axis = 2;
         }
-#endif
-#if defined(WARPX_DIM_3D)
+#ifdef WARPX_DIM_3D
         const std::string flux_normal_axis_help = "'x', 'y', or 'z'.";
-#elif defined(WARPX_DIM_RZ)
+#else
+#    ifdef WARPX_DIM_RZ
         const std::string flux_normal_axis_help = "'r' or 'z'.";
-#elif defined(WARPX_DIM_XZ)
+#    elif WARPX_DIM_XZ
         const std::string flux_normal_axis_help = "'x' or 'z'.";
-#elif defined(WARPX_DIM_1D_Z)
+#    else
         const std::string flux_normal_axis_help = "'z'.";
-#elif defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
-        const std::string flux_normal_axis_help = "'r'.";
-#endif
+#    endif
+    #endif
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(flux_normal_axis >= 0,
             "Error: Invalid value for flux_normal_axis. It must be " + flux_normal_axis_help);
         utils::parser::getWithParser(pp_species, source_name, "flux_direction", flux_direction);
@@ -403,23 +388,24 @@ void PlasmaInjector::setupNFluxPerCell (amrex::ParmParse const& pp_species)
 void PlasmaInjector::setupNuniformPerCell (amrex::ParmParse const& pp_species)
 {
     // Note that for RZ, three numbers are expected, r, theta, and z.
-    // For RCYLINDER, two numbers are expected, r, theta.
-    // For RSPHERE, three numbers are expected, r, theta, and phi
     // For 2D, only two are expected. The third is overwritten with 1.
     // For 1D, only one is expected. The second and third are overwritten with 1.
 #if defined(WARPX_DIM_1D_Z)
     constexpr int num_required_ppc_each_dim = 1;
-#elif defined(WARPX_DIM_XZ) || defined(WARPX_DIM_RCYLINDER)
+#elif defined(WARPX_DIM_XZ)
     constexpr int num_required_ppc_each_dim = 2;
 #else
     constexpr int num_required_ppc_each_dim = 3;
 #endif
     utils::parser::getArrWithParser(pp_species, source_name, "num_particles_per_cell_each_dim", num_particles_per_cell_each_dim,
                         0, num_required_ppc_each_dim);
-    // overwrite extra dimensions with 1
-    for (int i=num_required_ppc_each_dim ; i < 3 ; i++) {
-        num_particles_per_cell_each_dim.push_back(1);
-    }
+#if WARPX_DIM_XZ
+    num_particles_per_cell_each_dim.push_back(1);
+#endif
+#if WARPX_DIM_1D_Z
+    num_particles_per_cell_each_dim.push_back(1); // overwrite 2nd number with 1
+    num_particles_per_cell_each_dim.push_back(1); // overwrite 3rd number with 1
+#endif
 #if WARPX_DIM_RZ
     if (WarpX::n_rz_azimuthal_modes > 1) {
     WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
@@ -473,13 +459,13 @@ void PlasmaInjector::setupExternalFile (amrex::ParmParse const& pp_species)
     const bool species_is_specified = pp_species.contains("species_type");
 
     if (amrex::ParallelDescriptor::IOProcessor()) {
-        auto series = openPMD::Series(
+        m_openpmd_input_series = std::make_unique<openPMD::Series>(
             str_injection_file, openPMD::Access::READ_ONLY);
 
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            series.iterations.size() == 1u,
+            m_openpmd_input_series->iterations.size() == 1u,
             "External file should contain only 1 iteration\n");
-        openPMD::Iteration it = series.iterations.begin()->second;
+        openPMD::Iteration it = m_openpmd_input_series->iterations.begin()->second;
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             it.particles.size() == 1u,
             "External file should contain only 1 species\n");
@@ -506,7 +492,7 @@ void PlasmaInjector::setupExternalFile (amrex::ParmParse const& pp_species)
                 // TODO: Add ASSERT_WITH_MESSAGE to test if charge is a constant record
                 auto p_q_ptr =
                     ps["charge"][openPMD::RecordComponent::SCALAR].loadChunk<amrex::ParticleReal>();
-                series.flush();
+                m_openpmd_input_series->flush();
                 amrex::ParticleReal const p_q = p_q_ptr.get()[0];
                 auto const charge_unit = static_cast<amrex::Real>(ps["charge"][openPMD::RecordComponent::SCALAR].unitSI());
                 charge = p_q * charge_unit;
@@ -529,13 +515,12 @@ void PlasmaInjector::setupExternalFile (amrex::ParmParse const& pp_species)
                 // TODO: Add ASSERT_WITH_MESSAGE to test if mass is a constant record
                 auto p_m_ptr =
                     ps["mass"][openPMD::RecordComponent::SCALAR].loadChunk<amrex::ParticleReal>();
-                series.flush();
+                m_openpmd_input_series->flush();
                 amrex::ParticleReal const p_m = p_m_ptr.get()[0];
                 auto const mass_unit = static_cast<amrex::Real>(ps["mass"][openPMD::RecordComponent::SCALAR].unitSI());
                 mass = p_m * mass_unit;
             }
         }
-        m_openpmd_input_series = series;
     } // IOProcessor
 
     // Broadcast charge and mass to non-IO processors if read in from the file
@@ -596,11 +581,7 @@ amrex::XDim3 PlasmaInjector::getMomentum (amrex::Real x,
                                           amrex::Real y,
                                           amrex::Real z) const noexcept
 {
-#ifdef AMREX_USE_GPU
-    return h_inj_mom->getMomentum(x, y, z, amrex::RandomEngine{nullptr}); // gamma*beta
-#else
     return h_inj_mom->getMomentum(x, y, z, amrex::RandomEngine{}); // gamma*beta
-#endif
 }
 
 bool PlasmaInjector::insideBounds (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept

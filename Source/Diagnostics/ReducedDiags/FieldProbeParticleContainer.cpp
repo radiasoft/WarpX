@@ -108,11 +108,8 @@ FieldProbeParticleContainer::AddNParticles (int lev,
     DefineAndReturnParticleTile(0, 0, 0);
 
     // for RZ write theta value
-#if defined(WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
+#ifdef WARPX_DIM_RZ
     pinned_tile.push_back_real(FieldProbePIdx::theta, np, 0.0);
-#endif
-#if defined(WARPX_DIM_RSPHERE)
-    pinned_tile.push_back_real(FieldProbePIdx::phi, np, 0.0);
 #endif
 #if !defined (WARPX_DIM_1D_Z)
     pinned_tile.push_back_real(FieldProbePIdx::x, x);
@@ -120,9 +117,7 @@ FieldProbeParticleContainer::AddNParticles (int lev,
 #if defined (WARPX_DIM_3D)
     pinned_tile.push_back_real(FieldProbePIdx::y, y);
 #endif
-#if !defined(WARPX_DIM_RCYLINDER) && !defined(WARPX_DIM_RSPHERE)
     pinned_tile.push_back_real(FieldProbePIdx::z, z);
-#endif
     pinned_tile.push_back_real(FieldProbePIdx::Ex, np, 0.0);
     pinned_tile.push_back_real(FieldProbePIdx::Ey, np, 0.0);
     pinned_tile.push_back_real(FieldProbePIdx::Ez, np, 0.0);

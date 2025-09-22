@@ -10,7 +10,6 @@
 #include "ablastr/utils/TextMsg.H"
 #include "ablastr/profiler/ProfilerWrapper.H"
 
-#include <complex>
 #include <cstdint>
 
 namespace ablastr::math::anyfft
@@ -54,9 +53,9 @@ namespace ablastr::math::anyfft
         }
 
         fft_plan.m_plan->set_value(oneapi::mkl::dft::config_param::PLACEMENT,
-                                   oneapi::mkl::dft::config_value::NOT_INPLACE);
+                                   DFTI_NOT_INPLACE);
         fft_plan.m_plan->set_value(oneapi::mkl::dft::config_param::FWD_STRIDES,
-                                   strides);
+                                   strides.data());
         fft_plan.m_plan->commit(amrex::Gpu::Device::streamQueue());
 
         // Store meta-data in fft_plan

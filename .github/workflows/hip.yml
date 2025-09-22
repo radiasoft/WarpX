@@ -5,26 +5,22 @@ on:
     branches:
       - "development"
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - "Docs/**"
+      - "**.rst"
 
 concurrency:
   group: ${{ github.ref }}-${{ github.head_ref }}-hip
   cancel-in-progress: true
 
 jobs:
-
-  check_changes:
-    name: Analyze
-    uses: ./.github/workflows/check_changes.yml
-
   build_hip_3d_sp:
     name: HIP 3D SP
     runs-on: ubuntu-24.04
     env:
       CXXFLAGS: "-Werror -Wno-deprecated-declarations -Wno-error=pass-failed"
       CMAKE_GENERATOR: Ninja
-    needs: check_changes
-    if: ${{ github.event.pull_request.draft == false && needs.check_changes.outputs.has_non_docs_changes == 'true' }}
+    if: github.event.pull_request.draft == false
     steps:
     - uses: actions/checkout@v4
     - name: install dependencies
@@ -78,8 +74,7 @@ jobs:
     env:
       CXXFLAGS: "-Werror -Wno-deprecated-declarations -Wno-error=pass-failed"
       CMAKE_GENERATOR: Ninja
-    needs: check_changes
-    if: ${{ github.event.pull_request.draft == false && needs.check_changes.outputs.has_non_docs_changes == 'true' }}
+    if: github.event.pull_request.draft == false
     steps:
     - uses: actions/checkout@v4
     - name: install dependencies

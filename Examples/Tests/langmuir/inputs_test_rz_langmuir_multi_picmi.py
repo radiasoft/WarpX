@@ -52,7 +52,7 @@ diagnostic_intervals = 40
 
 uniform_plasma = picmi.UniformDistribution(
     density=density,
-    upper_bound=[+18e-6, None, +40e-6],
+    upper_bound=[+18e-6, +18e-6, None],
     directed_velocity=[0.0, 0.0, 0.0],
 )
 
@@ -73,7 +73,7 @@ momentum_expressions = [
 
 analytic_plasma = picmi.AnalyticDistribution(
     density_expression=density,
-    upper_bound=[+18e-6, None, +40e-6],
+    upper_bound=[+18e-6, +18e-6, None],
     epsilon0=epsilon0,
     epsilon1=epsilon1,
     epsilon2=epsilon2,

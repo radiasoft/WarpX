@@ -23,21 +23,21 @@ dt = 7.5e-10
 max_steps = 10
 
 nx = 64
-nz = 64
+ny = 64
 
 xmin = 0
 xmax = 0.03
-zmin = 0
-zmax = 0.03
+ymin = 0
+ymax = 0.03
 
 ##########################
 # numerics components
 ##########################
 
 grid = picmi.Cartesian2DGrid(
-    number_of_cells=[nx, nz],
-    lower_bound=[xmin, zmin],
-    upper_bound=[xmax, zmax],
+    number_of_cells=[nx, ny],
+    lower_bound=[xmin, ymin],
+    upper_bound=[xmax, ymax],
     lower_boundary_conditions=["dirichlet", "periodic"],
     upper_boundary_conditions=["dirichlet", "periodic"],
     lower_boundary_conditions_particles=["absorbing", "periodic"],

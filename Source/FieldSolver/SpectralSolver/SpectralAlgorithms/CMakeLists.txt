@@ -2,12 +2,12 @@ foreach(D IN LISTS WarpX_DIMS)
     warpx_set_suffix_dims(SD ${D})
     target_sources(lib_${SD}
       PRIVATE
-        SpectralBaseAlgorithm.cpp
-        PsatdAlgorithmJRhomFirstOrder.cpp
-        PsatdAlgorithmJRhomSecondOrder.cpp
-        PsatdAlgorithmGalilean.cpp
-        PsatdAlgorithmComoving.cpp
+        PsatdAlgorithmFirstOrder.cpp
+        PsatdAlgorithmJConstantInTime.cpp
+        PsatdAlgorithmJLinearInTime.cpp
         PsatdAlgorithmPml.cpp
+        SpectralBaseAlgorithm.cpp
+        PsatdAlgorithmComoving.cpp
     )
 
     if(D STREQUAL "RZ")

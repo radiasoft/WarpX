@@ -34,10 +34,10 @@ MultiDiagnostics::MultiDiagnostics ()
 }
 
 void
-MultiDiagnostics::InitData (const MultiParticleContainer& mpc)
+MultiDiagnostics::InitData ()
 {
     for( auto& diag : alldiags ){
-        diag->InitData(mpc);
+        diag->InitData();
     }
 }
 

@@ -5,10 +5,10 @@ import os
 import sys
 
 import yt
-
-sys.path.insert(1, "../Regression/Checksum/")
-from checksumAPI import evaluate_checksum
 from openpmd_viewer import OpenPMDTimeSeries
+
+sys.path.insert(1, "../../../../warpx/Regression/Checksum/")
+from checksumAPI import evaluate_checksum
 
 
 def main(args):

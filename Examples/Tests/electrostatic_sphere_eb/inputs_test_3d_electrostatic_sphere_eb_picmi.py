@@ -73,14 +73,12 @@ embedded_boundary = picmi.EmbeddedBoundary(
 particle_diag = picmi.ParticleDiagnostic(
     name="diag1",
     period=1,
-    warpx_format="openpmd",
 )
 field_diag = picmi.FieldDiagnostic(
     name="diag1",
     grid=grid,
     period=1,
-    data_list=["Ex", "Ey", "Ez", "phi", "rho", "eb_covered"],
-    warpx_format="openpmd",
+    data_list=["Ex", "Ey", "Ez", "phi", "rho"],
 )
 
 reduced_diag = picmi.ReducedDiagnostic(

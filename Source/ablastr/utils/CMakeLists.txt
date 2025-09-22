@@ -3,7 +3,6 @@ foreach(D IN LISTS WarpX_DIMS)
     target_sources(ablastr_${SD}
       PRIVATE
         Communication.cpp
-        RelativeCellPosition.cpp
         SignalHandling.cpp
         TextMsg.cpp
         UsedInputsFile.cpp

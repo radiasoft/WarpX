@@ -6,6 +6,8 @@
  */
 #include "ParticleUtils.H"
 
+#include "WarpX.H"
+
 #include <AMReX_Algorithm.H>
 #include <AMReX_Array.H>
 #include <AMReX_Box.H>
@@ -27,13 +29,16 @@ namespace ParticleUtils
 
     // Define shortcuts for frequently-used type names
     using ParticleType = typename WarpXParticleContainer::ParticleType;
+    using ParticleTileType = typename WarpXParticleContainer::ParticleTileType;
+    using ParticleTileDataType = typename ParticleTileType::ParticleTileDataType;
     using ParticleBins = DenseBins<ParticleTileDataType>;
+    using index_type = typename ParticleBins::index_type;
 
     /* Find the particles and count the particles that are in each cell.
        Note that this does *not* rearrange particle arrays */
-    amrex::DenseBins<ParticleTileDataType>
-    findParticlesInEachCell (amrex::Geometry const& geom_lev,
-                             amrex::MFIter const & mfi,
+    ParticleBins
+    findParticlesInEachCell (int lev,
+                             MFIter const & mfi,
                              ParticleTileType & ptile) {
 
         // Extract particle structures for this tile
@@ -41,10 +46,11 @@ namespace ParticleUtils
         auto ptd = ptile.getParticleTileData();
 
         // Extract box properties
+        Geometry const& geom = WarpX::GetInstance().Geom(lev);
         Box const& cbx = mfi.tilebox(IntVect::TheZeroVector()); //Cell-centered box
         const auto lo = lbound(cbx);
-        const auto dxi = geom_lev.InvCellSizeArray();
-        const auto plo = geom_lev.ProbLoArray();
+        const auto dxi = geom.InvCellSizeArray();
+        const auto plo = geom.ProbLoArray();
 
         // Find particles that are in each cell;
         // results are stored in the object `bins`.

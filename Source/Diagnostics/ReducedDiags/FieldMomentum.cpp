@@ -45,9 +45,9 @@ FieldMomentum::FieldMomentum (const std::string& rd_name)
     : ReducedDiags{rd_name}
 {
     // RZ coordinate is not working
-#if (defined WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
+#if (defined WARPX_DIM_RZ)
         WARPX_ABORT_WITH_MESSAGE(
-            "FieldMomentum reduced diagnostics not implemented in cylindrical or spherical geometry");
+            "FieldMomentum reduced diagnostics not implemented in RZ geometry");
 #endif
 
     // Read number of levels

@@ -27,11 +27,10 @@ Functions can be called at the following times:
 
 * ``loadExternalFields``: during ``WarpX::LoadExternalFields`` to write ``B/Efield_fp_external`` values
 * ``beforeInitEsolve``: before the initial solve for the E fields (i.e. before the PIC loop starts)
-* ``afterInitEsolve``: after the initial solve for the E fields (i.e. before the PIC loop starts)
 * ``afterinit``: immediately after the init is complete
-* ``beforeEsolve``: before the solve for E fields (not called during init E solve, use beforeInitEsolve to apply to first solve)
+* ``beforeEsolve``: before the solve for E fields
 * ``poissonsolver``: In place of the computePhi call but only in an electrostatic simulation
-* ``afterEsolve``: after the solve for E fields (not called after init E solve, use afterInitEsolve to apply to first solve)
+* ``afterEsolve``: after the solve for E fields
 * ``afterBpush``: after the B field advance for electromagnetic solvers
 * ``afterEpush``: after the E field advance for electromagnetic solvers
 * ``beforedeposition``: before the particle deposition (for charge and/or current)

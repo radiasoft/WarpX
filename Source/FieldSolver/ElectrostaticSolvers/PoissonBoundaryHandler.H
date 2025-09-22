@@ -10,6 +10,7 @@
 #define WARPX_BOUNDARYHANDLER_H_
 
 #include "Utils/Parser/ParserUtils.H"
+#include "WarpX.H"
 
 #include <AMReX_Array.H>
 #include <AMReX_Geometry.H>

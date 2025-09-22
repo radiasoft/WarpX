@@ -16,7 +16,6 @@ import scipy.integrate as integ
 import scipy.special as spe
 import scipy.stats as st
 import yt
-from scipy.constants import c, e, fine_structure, hbar, m_e
 
 # This script performs detailed checks of the Quantum Synchrotron photon emission process.
 # Two electron populations and two positron populations are initialized with different momenta in different
@@ -48,10 +47,16 @@ from scipy.constants import c, e, fine_structure, hbar, m_e
 tol = 1.0e-8
 tol_red = 1.0e-2
 
-E_s = (m_e**2 * c**3) / (e * hbar)  # Schwinger E field
+# Physical constants (from CODATA 2018, see: https://physics.nist.gov/cuu/Constants/index.html )
+me = 9.1093837015e-31  # electron mass
+c = 299792458  # speed of light
+hbar = 6.62607015e-34 / (2 * np.pi)  # reduced Plank constant
+fine_structure = 7.2973525693e-3  # fine structure constant
+qe = 1.602176634e-19  # elementary charge
+E_s = (me**2 * c**3) / (qe * hbar)  # Schwinger E field
 B_s = E_s / c  # Schwinger B field
 
-mec = m_e * c
+mec = me * c
 mec2 = mec * c
 # ______________
 
@@ -76,7 +81,7 @@ NNS = [64, 64, 64, 64]  # bins for energy distribution comparison.
 
 def calc_chi_part(p, E, B):
     gamma_part = np.sqrt(1.0 + np.dot(p, p) / mec**2)
-    v = p / (gamma_part * m_e)
+    v = p / (gamma_part * me)
     EpvvecB = E + np.cross(v, B)
     vdotEoverc = np.dot(v, E) / c
     ff = np.sqrt(np.dot(EpvvecB, EpvvecB) - np.dot(vdotEoverc, vdotEoverc))
@@ -138,8 +143,8 @@ def small_diff(vv, val):
 
 
 def boris(pp, dt, charge_sign):
-    econst = 0.5 * e * dt * charge_sign / m_e
-    u = pp / (m_e)
+    econst = 0.5 * qe * dt * charge_sign / me
+    u = pp / (me)
     u += econst * E_f
     inv_gamma = 1 / np.sqrt(1 + np.dot(u, u) / c**2)
     t = econst * B_f * inv_gamma
@@ -147,7 +152,7 @@ def boris(pp, dt, charge_sign):
     u_p = u + np.cross(u, t)
     u += np.cross(u_p, s)
     u += econst * E_f
-    return u * m_e
+    return u * me
 
 
 # __________________
@@ -155,12 +160,12 @@ def boris(pp, dt, charge_sign):
 
 # Quantum Synchrotron total and differential cross sections
 def QS_dN_dt(chi_ele, gamma_ele):
-    coeff_IC = (2.0 / 3.0) * fine_structure * m_e * c**2 / hbar
+    coeff_IC = (2.0 / 3.0) * fine_structure * me * c**2 / hbar
     return coeff_IC * IC_G(chi_ele) / gamma_ele
 
 
 def QS_d2N_dt_dchi(chi, gamma_ele, chi_phot):
-    coeff_IC = (2.0 / 3.0) * fine_structure * m_e * c**2 / hbar
+    coeff_IC = (2.0 / 3.0) * fine_structure * me * c**2 / hbar
     return coeff_IC * IC_S(chi, chi_phot / chi) / chi_phot / gamma_ele
 
 

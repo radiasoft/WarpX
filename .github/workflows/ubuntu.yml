@@ -5,23 +5,19 @@ on:
     branches:
       - "development"
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - "Docs/**"
+      - "**.rst"
 
 concurrency:
   group: ${{ github.ref }}-${{ github.head_ref }}-ubuntu
   cancel-in-progress: true
 
 jobs:
-
-  check_changes:
-    name: Analyze
-    uses: ./.github/workflows/check_changes.yml
-
   build_cxxminimal:
     name: GCC Minimal w/o MPI
-    runs-on: ubuntu-24.04
-    needs: check_changes
-    if: ${{ github.event.pull_request.draft == false && needs.check_changes.outputs.has_non_docs_changes == 'true' }}
+    runs-on: ubuntu-20.04
+    if: github.event.pull_request.draft == false
     env:
       CXXFLAGS: "-Werror"
     steps:
@@ -58,9 +54,8 @@ jobs:
 
   build_1D_2D:
     name: GCC 1D & 2D w/ MPI, QED tools
-    runs-on: ubuntu-24.04
-    needs: check_changes
-    if: ${{ github.event.pull_request.draft == false && needs.check_changes.outputs.has_non_docs_changes == 'true' }}
+    runs-on: ubuntu-22.04
+    if: github.event.pull_request.draft == false
     env:
       CXXFLAGS: "-Werror"
       CXX: "g++-12"
@@ -107,8 +102,7 @@ jobs:
   build_3D_sp:
     name: GCC 3D & RZ w/ MPI, single precision
     runs-on: ubuntu-22.04
-    needs: check_changes
-    if: ${{ github.event.pull_request.draft == false && needs.check_changes.outputs.has_non_docs_changes == 'true' }}
+    if: github.event.pull_request.draft == false
     env:
       CXX: "g++-12"
       CC: "gcc-12"
@@ -154,9 +148,8 @@ jobs:
 
   build_gcc_ablastr:
     name: GCC ABLASTR w/o MPI
-    runs-on: ubuntu-24.04
-    needs: check_changes
-    if: ${{ github.event.pull_request.draft == false && needs.check_changes.outputs.has_non_docs_changes == 'true' }}
+    runs-on: ubuntu-20.04
+    if: github.event.pull_request.draft == false
     env:
       CMAKE_GENERATOR: Ninja
       CXXFLAGS: "-Werror"
@@ -191,9 +184,8 @@ jobs:
 
   build_pyfull:
     name: Clang pywarpx
-    runs-on: ubuntu-24.04
-    needs: check_changes
-    if: ${{ github.event.pull_request.draft == false && needs.check_changes.outputs.has_non_docs_changes == 'true' }}
+    runs-on: ubuntu-20.04
+    if: github.event.pull_request.draft == false
     env:
       CC: clang
       CXX: clang++

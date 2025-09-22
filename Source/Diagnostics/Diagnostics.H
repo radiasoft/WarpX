@@ -36,7 +36,6 @@ public:
      *
      * @param i index of diagnostics in MultiDiagnostics::alldiags
      * @param name diagnostics name in the inputs file
-     * @param diag_type diagnostics type (e.g., full, back-transformed, time-averaged, etc.)
      */
     Diagnostics (int i, std::string name, DiagTypes diag_type);
 
@@ -72,12 +71,10 @@ public:
      * (including metadata listing the total number of particles) even if the snapshot is incomplete
      */
     virtual void Flush (int i_buffer, bool force_flush) = 0;
-
     /** Initialize pointers to main fields and allocate output multifab m_mf_output. */
-    void InitData (const MultiParticleContainer& mpc);
+    void InitData ();
     void InitDataBeforeRestart ();
-    void InitDataAfterRestart (const MultiParticleContainer& mpc);
-
+    void InitDataAfterRestart ();
     /** Initialize functors that store pointers to the fields requested by the user.
      *
      * Derived classes MUST implement this function, and it must allocate m_all_field_functors
@@ -200,19 +197,14 @@ protected:
     /** Initialize m_mf_output vectors and data required to construct the buffers
      * \param[in] i_buffer index of buffer for which the output MultiFab is defined.
      * \param[in] lev level on which the output MultiFab is defined
-     * \param[in] restart whether this is called upon restarting a previous simulation
      */
     virtual void InitializeBufferData (int i_buffer, int lev, bool restart=false) = 0;
     /** Initialize member variables and arrays specific to the diagnostics in the
      *  derived classes.(FullDiagnostics, BTDiagnostics)
      */
     virtual void DerivedInitData () {}
-
-    /** This function initialized particle buffers (not implemented in diagnostics, yet)
-     *  \param[in] mpc a constant reference to the multi-particle container.
-     */
-    virtual void InitializeParticleBuffer (const MultiParticleContainer& mpc) = 0;
-
+    /** This function initialized particle buffers (not implemented in diagnostics, yet) */
+    virtual void InitializeParticleBuffer () = 0;
     /** This function prepares buffer data as required for fields and particles. For back-transformed diagnostics,
      *  this function prepares the z coordinate in the boosted-frame and lab-frame.
      */

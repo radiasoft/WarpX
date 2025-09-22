@@ -26,8 +26,6 @@ Checks: '
         -cppcoreguidelines-pro-*,
     google-build-explicit-make-pair,
     google-build-namespaces,
-    google-default-arguments,
-    google-explicit-constructor,
     google-global-names-in-headers,
     misc-*,
         -misc-no-recursion,

@@ -107,6 +107,7 @@ def get_species_of_accelerator_stage(
         density_expression=f"n0*(1.+4.*(x**2+y**2)/(kp**2*Rc**4))*(0.5*(1.-cos(pi*(z-{stage_zmin})/Lplus)))*((z-{stage_zmin})<Lplus)"
         + f"+n0*(1.+4.*(x**2+y**2)/(kp**2*Rc**4))*((z-{stage_zmin})>=Lplus)*((z-{stage_zmin})<(Lplus+Lp))"
         + f"+n0*(1.+4.*(x**2+y**2)/(kp**2*Rc**4))*(0.5*(1.+cos(pi*((z-{stage_zmin})-Lplus-Lp)/Lminus)))*((z-{stage_zmin})>=(Lplus+Lp))*((z-{stage_zmin})<(Lplus+Lp+Lminus))",
+        pi=3.141592653589793,
         n0=n0,
         kp=q_e / c * math.sqrt(n0 / (m_e * ep0)),
         Rc=Rc,
@@ -208,24 +209,28 @@ for i_stage in range(1):
 
 # Electromagnetic solver
 
-psatd_algo = "psatd_JRhom"
+psatd_algo = "multij"
 if psatd_algo == "galilean":
     galilean_velocity = [0.0, 0.0] if dim == "3" else [0.0]
     galilean_velocity += [-c * beta_boost]
     n_pass_z = 1
-    psatd_JRhom = None
+    do_multiJ = None
+    do_multi_J_n_depositions = None
+    J_in_time = None
     current_correction = True
     divE_cleaning = False
-elif psatd_algo == "psatd_JRhom":
+elif psatd_algo == "multij":
     n_pass_z = 4
     galilean_velocity = None
-    psatd_JRhom = "LL2"
+    do_multiJ = True
+    do_multi_J_n_depositions = 2
+    J_in_time = "linear"
     current_correction = False
     divE_cleaning = True
 else:
     raise Exception(
         f"PSATD algorithm '{psatd_algo}' is not recognized!\n"
-        "Valid options are 'psatd_JRhom' or 'galilean'."
+        "Valid options are 'multiJ' or 'galilean'."
     )
 if dim == "rz":
     stencil_order = [8, 16]
@@ -245,9 +250,9 @@ solver = picmi.ElectromagneticSolver(
     stencil_order=stencil_order,
     galilean_velocity=galilean_velocity,
     warpx_psatd_update_with_rho=True,
-    warpx_psatd_JRhom=psatd_JRhom,
     warpx_current_correction=current_correction,
     divE_cleaning=divE_cleaning,
+    warpx_psatd_J_in_time=J_in_time,
 )
 
 # Diagnostics
@@ -324,6 +329,8 @@ sim = picmi.Simulation(
     warpx_particle_pusher_algo="vay",
     warpx_amrex_the_arena_is_managed=False,
     warpx_amrex_use_gpu_aware_mpi=True,
+    warpx_do_multi_J=do_multiJ,
+    warpx_do_multi_J_n_depositions=do_multi_J_n_depositions,
     warpx_grid_type=grid_type,
     # default: 2 for staggered grids, 8 for hybrid grids
     warpx_field_centering_order=[16, 16, 16],

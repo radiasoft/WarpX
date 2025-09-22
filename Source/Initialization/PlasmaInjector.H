@@ -25,7 +25,10 @@
 
 #include <AMReX_BaseFwd.H>
 
-#include <any>
+#ifdef WARPX_USE_OPENPMD
+#   include <openPMD/openPMD.hpp>
+#endif
+
 #include <limits>
 #include <memory>
 #include <string>
@@ -116,7 +119,7 @@ public:
     amrex::Real z_shift = 0.0; //! additional z offset for particle positions
 #ifdef WARPX_USE_OPENPMD
     //! openPMD::Series to load from in external_file injection
-    std::any m_openpmd_input_series;
+    std::unique_ptr<openPMD::Series> m_openpmd_input_series;
 #endif
 
     amrex::Real surface_flux_pos; // surface location
@@ -128,10 +131,9 @@ public:
     int flux_normal_axis;
     int flux_direction; // -1 for left, +1 for right
 
-    // With radial geometry, the number of particles per cell will be proportional to r**radial_numpercell_power
-    amrex::Real radial_numpercell_power;
-
     bool m_inject_from_eb = false; // whether to inject from the embedded boundary
+
+    bool radially_weighted = true;
 
     std::string str_flux_function;
 

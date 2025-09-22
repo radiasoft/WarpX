@@ -19,22 +19,20 @@
 utils::parser::SliceParser::SliceParser (const std::string& instr, const bool isBTD):
     m_isBTD{isBTD}
 {
-    const amrex::ParmParse pp;
-
     // split string and trim whitespaces
     auto insplit = ablastr::utils::text::split_string<std::vector<std::string>>(
         instr, m_separator, true);
 
     if(insplit.size() == 1){ // no colon in input string. The input is the period.
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!m_isBTD, "must specify interval stop for BTD");
-        m_period = int(std::round(pp.eval<double>(insplit[0])));}
+        m_period = parseStringtoInt(insplit[0], "interval period");}
     else if(insplit.size() == 2) // 1 colon in input string. The input is start:stop
     {
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(!m_isBTD || !insplit[1].empty(), "must specify interval stop for BTD");
         if (!insplit[0].empty()){
-            m_start = int(std::round(pp.eval<double>(insplit[0])));}
+            m_start = parseStringtoInt(insplit[0], "interval start");}
         if (!insplit[1].empty()){
-            m_stop = int(std::round(pp.eval<double>(insplit[1])));}
+            m_stop = parseStringtoInt(insplit[1], "interval stop");}
     }
     else // 2 colons in input string. The input is start:stop:period
     {
@@ -43,11 +41,11 @@ utils::parser::SliceParser::SliceParser (const std::string& instr, const bool is
             insplit.size() == 3,
             instr + "' is not a valid syntax for a slice.");
         if (!insplit[0].empty()){
-            m_start = int(std::round(pp.eval<double>(insplit[0])));}
+            m_start = parseStringtoInt(insplit[0], "interval start");}
         if (!insplit[1].empty()){
-            m_stop = int(std::round(pp.eval<double>(insplit[1])));}
+            m_stop = parseStringtoInt(insplit[1], "interval stop");}
         if (!insplit[2].empty()){
-            m_period = int(std::round(pp.eval<double>(insplit[2])));}
+            m_period = parseStringtoInt(insplit[2], "interval period");}
     }
 }
 
@@ -173,7 +171,7 @@ utils::parser::BTDIntervalsParser::BTDIntervalsParser (
             // find the last index i_slice where
             // the start value of m_slices[i_slice] is greater than temp_slices' start_value
             int i_slice = 0;
-            while (i_slice < static_cast<int>(m_slices.size()) && temp_slice.getStart() > m_slices[i_slice].getStart())
+            while (temp_slice.getStart() > m_slices[i_slice].getStart() && i_slice < static_cast<int>(m_slices.size()))
             {
                 i_slice++;
             }

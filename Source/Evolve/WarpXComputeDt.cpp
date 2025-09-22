@@ -6,14 +6,12 @@
  */
 #include "WarpX.H"
 
-#if defined(WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER)
-#   include "FieldSolver/FiniteDifferenceSolver/FiniteDifferenceAlgorithms/CylindricalYeeAlgorithm.H"
-#elif defined(WARPX_DIM_RSPHERE)
-#   include "FieldSolver/FiniteDifferenceSolver/FiniteDifferenceAlgorithms/SphericalYeeAlgorithm.H"
-#else
+#ifndef WARPX_DIM_RZ
 #   include "FieldSolver/FiniteDifferenceSolver/FiniteDifferenceAlgorithms/CartesianCKCAlgorithm.H"
 #   include "FieldSolver/FiniteDifferenceSolver/FiniteDifferenceAlgorithms/CartesianNodalAlgorithm.H"
 #   include "FieldSolver/FiniteDifferenceSolver/FiniteDifferenceAlgorithms/CartesianYeeAlgorithm.H"
+#else
+#   include "FieldSolver/FiniteDifferenceSolver/FiniteDifferenceAlgorithms/CylindricalYeeAlgorithm.H"
 #endif
 #include "Particles/MultiParticleContainer.H"
 #include "Utils/TextMsg.H"
@@ -74,14 +72,10 @@ WarpX::ComputeDt ()
         deltat = cfl * minDim(dx) / PhysConst::c;
     } else {
         // Computation of dt for FDTD algorithm
-#if defined(WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER)
+#ifdef WARPX_DIM_RZ
         // - In RZ geometry
         if (electromagnetic_solver_id == ElectromagneticSolverAlgo::Yee) {
             deltat = cfl * CylindricalYeeAlgorithm::ComputeMaxDt(dx,  n_rz_azimuthal_modes);
-#elif defined(WARPX_DIM_RSPHERE)
-        // - In RZ geometry
-        if (electromagnetic_solver_id == ElectromagneticSolverAlgo::Yee) {
-            deltat = cfl * SphericalYeeAlgorithm::ComputeMaxDt(dx);
 #else
         // - In Cartesian geometry
         if (grid_type == GridType::Collocated) {

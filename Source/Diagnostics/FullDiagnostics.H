@@ -74,7 +74,6 @@ private:
       *
       * \param[in] i_buffer index of a back-transformed snapshot
       * \param[in] lev level on which source multifabs are defined
-      * \param[in] restart whether this is called upon restarting a previous simulation
       */
     void InitializeBufferData ( int i_buffer, int lev, bool restart=false ) override;
     /** Initialize functors that store pointers to the RZ fields requested by the user.
@@ -90,9 +89,7 @@ private:
       * \param[in] lev level on which the vector of unique_ptrs to field functors is initialized.
       */
     void InitializeFieldFunctors (int lev) override;
-
-    void InitializeParticleBuffer (const MultiParticleContainer& mpc) override;
-
+    void InitializeParticleBuffer () override;
     /** Prepare field data to be used for diagnostics */
     void PrepareFieldDataForOutput () override;
     /** Prepare particle data to be used for diagnostics. */

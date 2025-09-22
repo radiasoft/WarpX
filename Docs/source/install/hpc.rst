@@ -33,7 +33,6 @@ This section documents quick-start guides for a selection of supercomputers that
    :maxdepth: 1
 
    hpc/adastra
-   hpc/aurora
    hpc/crusher
    hpc/frontier
    hpc/fugaku
@@ -54,7 +53,7 @@ This section documents quick-start guides for a selection of supercomputers that
    hpc/dane
    hpc/summit
    hpc/taurus
-   hpc/tuolumne
+   hpc/tioga
 
 .. tip::
 

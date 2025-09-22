@@ -61,25 +61,12 @@ RigidInjectedParticleContainer::RigidInjectedParticleContainer (AmrCore* amr_cor
     : PhysicalParticleContainer(amr_core, ispecies, name)
 {
 
-#if defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
-    WARPX_ABORT_WITH_MESSAGE("Rigid injection not supported with 1D cylindrical and spherical");
-#endif
-
     const ParmParse pp_species_name(species_name);
 
     utils::parser::getWithParser(
         pp_species_name, "zinject_plane", zinject_plane);
-    std::string raw;
-    if (pp_species_name.query("rigid_advance", raw)) {
-        raw = amrex::toLower(raw);
-        if (raw == "true"  || raw == "1") {
-            rigid_advance_mode = RigidAdvanceMode::vzbar;
-        } else if (raw == "false" || raw == "0") {
-            rigid_advance_mode = RigidAdvanceMode::vz;
-        } else {
-            pp_species_name.query_enum_sloppy("rigid_advance", rigid_advance_mode, "-_");
-        }
-    }
+    pp_species_name.query("rigid_advance", rigid_advance);
+
 }
 
 void RigidInjectedParticleContainer::InitData()
@@ -103,7 +90,7 @@ RigidInjectedParticleContainer::RemapParticles()
 {
     // For rigid_advance == false, nothing needs to be done
 
-    if (rigid_advance_mode == RigidAdvanceMode::vzbar) {
+    if (rigid_advance) {
 
         // The particle z positions are adjusted to account for the difference between
         // advancing with vzbar and wih vz[i] before injection
@@ -180,7 +167,7 @@ RigidInjectedParticleContainer::PushPX (WarpXParIter& pti,
                                         const long np_to_push,
                                         int lev, int gather_lev,
                                         amrex::Real dt, ScaleFields /*scaleFields*/,
-                                        SubcyclingHalf subcycling_half)
+                                        DtType a_dt_type)
 {
     auto& attribs = pti.GetAttribs();
     auto& uxp = attribs[PIdx::ux];
@@ -224,7 +211,7 @@ RigidInjectedParticleContainer::PushPX (WarpXParIter& pti,
                                       ngEB, e_is_nodal, offset, np_to_push, lev, gather_lev, dt,
                                       ScaleFields(do_scale, dt, zinject_plane_lev_previous,
                                                   vzbeam_ave_boosted, v_boost),
-                                      subcycling_half);
+                                      a_dt_type);
 
     if (!done_injecting_lev) {
 
@@ -236,32 +223,26 @@ RigidInjectedParticleContainer::PushPX (WarpXParIter& pti,
         // The zp are advanced a fixed amount.
         const amrex::ParticleReal z_plane_lev = zinject_plane_lev;
         const amrex::ParticleReal vz_ave_boosted = vzbeam_ave_boosted;
-        const RigidAdvanceMode rigid = rigid_advance_mode;
+        const bool rigid = rigid_advance;
         constexpr amrex::ParticleReal inv_csq = 1._prt/(PhysConst::c*PhysConst::c);
-        amrex::ParallelFor(np_to_push, [=] AMREX_GPU_DEVICE(long i) {
-            amrex::ParticleReal xp, yp, zp;
-            GetPosition(i, xp, yp, zp);
-            if (zp <= z_plane_lev) {
-                xp = x_save[i];
-                yp = y_save[i];
-                zp = z_save[i];
-                if (rigid == RigidAdvanceMode::vzbar) {
-                    zp += dt * vz_ave_boosted;
-                } else {
-                    const amrex::ParticleReal gi =
-                        1._prt /
-                        std::sqrt(1._prt + (ux[i] * ux[i] + uy[i] * uy[i] +
-                                            uz[i] * uz[i]) *
-                                               inv_csq);
-                    zp += dt * uz[i] * gi;
-                    if (rigid == RigidAdvanceMode::v) {
-                        xp += dt * ux[i] * gi;
-                        yp += dt * uy[i] * gi;
-                    }
-                }
-                SetPosition(i, xp, yp, zp);
-            }
-        });
+        amrex::ParallelFor( np_to_push,
+                            [=] AMREX_GPU_DEVICE (long i) {
+                                amrex::ParticleReal xp, yp, zp;
+                                GetPosition(i, xp, yp, zp);
+                                if (zp <= z_plane_lev) {
+                                    xp = x_save[i];
+                                    yp = y_save[i];
+                                    if (rigid) {
+                                        zp = z_save[i] + dt*vz_ave_boosted;
+                                    }
+                                    else {
+                                        const amrex::ParticleReal gi = 1._prt/std::sqrt(1._prt + (ux[i]*ux[i]
+                                                             + uy[i]*uy[i] + uz[i]*uz[i])*inv_csq);
+                                        zp = z_save[i] + dt*uz[i]*gi;
+                                    }
+                                    SetPosition(i, xp, yp, zp);
+                                }
+                            });
     }
 }
 
@@ -269,8 +250,8 @@ void
 RigidInjectedParticleContainer::Evolve (ablastr::fields::MultiFabRegister& fields,
                                         int lev,
                                         const std::string& current_fp_string,
-                                        Real t, Real dt, SubcyclingHalf subcycling_half, bool skip_deposition,
-                                        ImplicitOptions const * /*implicit_options*/)
+                                        Real t, Real dt, DtType a_dt_type, bool skip_deposition,
+                                        PushType push_type)
 {
 
     // Update location of injection plane in the boosted frame
@@ -284,18 +265,13 @@ RigidInjectedParticleContainer::Evolve (ablastr::fields::MultiFabRegister& field
     // particles have crossed the inject plane.
     const Real* plo = Geom(lev).ProbLo();
     const Real* phi = Geom(lev).ProbHi();
-#if defined(WARPX_ZINDEX)
-    const int zindex = WARPX_ZINDEX;
-#else
-    const int zindex = 0;
-#endif
-    done_injecting_lev = ((zinject_plane_levels[lev] < plo[zindex] && WarpX::moving_window_v + WarpX::beta_boost*PhysConst::c >= 0.) ||
-                           (zinject_plane_levels[lev] > phi[zindex] && WarpX::moving_window_v + WarpX::beta_boost*PhysConst::c <= 0.));
+    done_injecting_lev = ((zinject_plane_levels[lev] < plo[WARPX_ZINDEX] && WarpX::moving_window_v + WarpX::beta_boost*PhysConst::c >= 0.) ||
+                           (zinject_plane_levels[lev] > phi[WARPX_ZINDEX] && WarpX::moving_window_v + WarpX::beta_boost*PhysConst::c <= 0.));
 
     PhysicalParticleContainer::Evolve (fields,
                                        lev,
                                        current_fp_string,
-                                       t, dt, subcycling_half, skip_deposition, nullptr);
+                                       t, dt, a_dt_type, skip_deposition, push_type);
 }
 
 void

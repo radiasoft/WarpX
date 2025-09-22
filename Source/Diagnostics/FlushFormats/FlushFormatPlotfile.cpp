@@ -49,19 +49,12 @@
 #include <utility>
 #include <vector>
 
-#ifndef WARPX_UNITY_ID
-#define WARPX_UNITY_ID
-#endif
-
 using namespace amrex;
 using warpx::fields::FieldType;
 
 namespace
 {
-namespace WARPX_UNITY_ID
-{
     const std::string default_level_prefix {"Level_"};
-}
 }
 
 void
@@ -383,11 +376,8 @@ FlushFormatPlotfile::WriteParticles(const std::string& dir,
         real_names.push_back("momentum_y");
         real_names.push_back("momentum_z");
 
-#if defined(WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
+#ifdef WARPX_DIM_RZ
         real_names.push_back("theta");
-#endif
-#if defined(WARPX_DIM_RSPHERE)
-        real_names.push_back("phi");
 #endif
 
         // get the names of the extra real comps
@@ -409,12 +399,10 @@ FlushFormatPlotfile::WriteParticles(const std::string& dir,
         // and the int comps
         int_names.resize(tmp.NumIntComps());
         int_flags.resize(tmp.NumIntComps());
-        //   note: inames and h_redistribute_int_comp are not the same size
         auto inames = tmp.GetIntSoANames();
-        std::size_t const i0_redist = tmp.h_redistribute_int_comp.size() - inames.size();
         for (std::size_t index = 0; index < inames.size(); ++index) {
             int_names[index] = inames[index];
-            int_flags[index] = tmp.h_redistribute_int_comp[i0_redist + index];
+            int_flags[index] = tmp.h_redistribute_int_comp[index];
         }
 
         const auto mass = pc->AmIA<PhysicalSpecies::photon>() ? PhysConst::m_e : pc->getMass();
@@ -582,7 +570,6 @@ FlushFormatPlotfile::WriteAllRawFields(
     const bool plot_raw_fields_guards) const
 {
     using ablastr::fields::Direction;
-    using WARPX_UNITY_ID::default_level_prefix;
 
     if (!plot_raw_fields) { return; }
     auto & warpx = WarpX::GetInstance();

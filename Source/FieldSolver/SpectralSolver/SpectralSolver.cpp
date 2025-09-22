@@ -8,9 +8,9 @@
 #include "FieldSolver/SpectralSolver/SpectralFieldData.H"
 #include "SpectralAlgorithms/PsatdAlgorithmComoving.H"
 #include "SpectralAlgorithms/PsatdAlgorithmPml.H"
-#include "SpectralAlgorithms/PsatdAlgorithmGalilean.H"
-#include "SpectralAlgorithms/PsatdAlgorithmJRhomFirstOrder.H"
-#include "SpectralAlgorithms/PsatdAlgorithmJRhomSecondOrder.H"
+#include "SpectralAlgorithms/PsatdAlgorithmFirstOrder.H"
+#include "SpectralAlgorithms/PsatdAlgorithmJConstantInTime.H"
+#include "SpectralAlgorithms/PsatdAlgorithmJLinearInTime.H"
 #include "SpectralKSpace.H"
 #include "SpectralSolver.H"
 #include "Utils/TextMsg.H"
@@ -38,8 +38,8 @@ SpectralSolver::SpectralSolver (
                 const bool update_with_rho,
                 const bool fft_do_time_averaging,
                 const PSATDSolutionType psatd_solution_type,
-                const TimeDependencyJ time_dependency_J,
-                const TimeDependencyRho time_dependency_rho,
+                const JInTime J_in_time,
+                const RhoInTime rho_in_time,
                 const bool dive_cleaning,
                 const bool divb_cleaning)
     : m_dt(dt)
@@ -52,7 +52,7 @@ SpectralSolver::SpectralSolver (
     const SpectralKSpace k_space= SpectralKSpace(realspace_ba, dm, dx);
 
     m_spectral_index = SpectralFieldIndex(
-        update_with_rho, fft_do_time_averaging, time_dependency_J, time_dependency_rho,
+        update_with_rho, fft_do_time_averaging, J_in_time, rho_in_time,
         dive_cleaning, divb_cleaning, pml);
 
     // - Select the algorithm depending on the input parameters
@@ -76,7 +76,7 @@ SpectralSolver::SpectralSolver (
         // Galilean PSATD algorithm (only J constant in time)
         else if (v_galilean[0] != 0. || v_galilean[1] != 0. || v_galilean[2] != 0.)
         {
-            algorithm = std::make_unique<PsatdAlgorithmGalilean>(
+            algorithm = std::make_unique<PsatdAlgorithmJConstantInTime>(
                 k_space, dm, m_spectral_index, norder_x, norder_y, norder_z, grid_type,
                 v_galilean, dt, update_with_rho, fft_do_time_averaging,
                 dive_cleaning, divb_cleaning);
@@ -93,19 +93,25 @@ SpectralSolver::SpectralSolver (
 
             const bool div_cleaning = (dive_cleaning && divb_cleaning);
 
-            // First-order PSATD equations with variable time dependency of J and rho
-            // (valid also for standard PSATD, where J is constant and rho is linear)
-            algorithm = std::make_unique<PsatdAlgorithmJRhomFirstOrder>(
+            algorithm = std::make_unique<PsatdAlgorithmFirstOrder>(
                 k_space, dm, m_spectral_index, norder_x, norder_y, norder_z, grid_type,
-                dt, div_cleaning, time_dependency_J, time_dependency_rho);
+                dt, div_cleaning, J_in_time, rho_in_time);
         }
         else if (psatd_solution_type == PSATDSolutionType::SecondOrder)
         {
-            // Second-order PSATD equations with variable time dependency of J and rho
-            // (valid also for standard PSATD, where J is constant and rho is linear)
-            algorithm = std::make_unique<PsatdAlgorithmJRhomSecondOrder>(
-              k_space, dm, m_spectral_index, norder_x, norder_y, norder_z, grid_type,
-              dt, update_with_rho, fft_do_time_averaging, dive_cleaning, divb_cleaning, time_dependency_J, time_dependency_rho);
+            if (J_in_time == JInTime::Constant)
+            {
+                algorithm = std::make_unique<PsatdAlgorithmJConstantInTime>(
+                    k_space, dm, m_spectral_index, norder_x, norder_y, norder_z, grid_type,
+                    v_galilean, dt, update_with_rho, fft_do_time_averaging,
+                    dive_cleaning, divb_cleaning);
+            }
+            else if (J_in_time == JInTime::Linear)
+            {
+                algorithm = std::make_unique<PsatdAlgorithmJLinearInTime>(
+                    k_space, dm, m_spectral_index, norder_x, norder_y, norder_z, grid_type,
+                    dt, fft_do_time_averaging, dive_cleaning, divb_cleaning);
+            }
         }
     }
 

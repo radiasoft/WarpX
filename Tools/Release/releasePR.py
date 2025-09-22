@@ -74,11 +74,7 @@ AMReX_version = f"{datetime.now().strftime('%y')}.{datetime.now().strftime('%m')
 answers = concat_answers(["y", AMReX_version, AMReX_version, "y"])
 
 process = subprocess.Popen(
-    [
-        Path(REPO_DIR).joinpath("Tools/Release/update_dependencies.py"),
-        "--amrex",
-        "--release",
-    ],
+    [Path(REPO_DIR).joinpath("Tools/Release/updateAMReX.py")],
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
@@ -97,15 +93,11 @@ subprocess.run(
 
 # PICSAR New Version ##########################################################
 
-PICSAR_version = "25.04"
+PICSAR_version = "25.01"
 answers = concat_answers(["y", PICSAR_version, PICSAR_version, "y"])
 
 process = subprocess.Popen(
-    [
-        Path(REPO_DIR).joinpath("Tools/Release/update_dependencies.py"),
-        "--picsar",
-        "--release",
-    ],
+    [Path(REPO_DIR).joinpath("Tools/Release/updatePICSAR.py")],
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
@@ -128,11 +120,7 @@ pyAMReX_version = f"{datetime.now().strftime('%y')}.{datetime.now().strftime('%m
 answers = concat_answers(["y", pyAMReX_version, pyAMReX_version, "y"])
 
 process = subprocess.Popen(
-    [
-        Path(REPO_DIR).joinpath("Tools/Release/update_dependencies.py"),
-        "--pyamrex",
-        "--release",
-    ],
+    [Path(REPO_DIR).joinpath("Tools/Release/updatepyAMReX.py")],
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
@@ -154,11 +142,7 @@ subprocess.run(
 answers = concat_answers(["y", WarpX_version_yr, WarpX_version_mn, "", "", "y"])
 
 process = subprocess.Popen(
-    [
-        Path(REPO_DIR).joinpath("Tools/Release/update_dependencies.py"),
-        "--warpx",
-        "--release",
-    ],
+    [Path(REPO_DIR).joinpath("Tools/Release/newVersion.sh")],
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
@@ -190,15 +174,14 @@ subprocess.run(
         f"""Prepare the {datetime.now().strftime("%B")} release of WarpX:
 ```bash
 # update dependencies
-./Tools/Release/update_dependencies.py --amrex --release
-./Tools/Release/update_dependencies.py --picsar --release # no changes, still {PICSAR_version}
-./Tools/Release/update_dependencies.py --pyamrex --release
+./Tools/Release/updateAMReX.py
+./Tools/Release/updatePICSAR.py  # no changes, still {PICSAR_version}
+./Tools/Release/updatepyAMReX.py
 # bump version number
-./Tools/Release/update_dependencies.py --warpx --release
+./Tools/Release/newVersion.sh
 ```
 
-This pull request was created with the script `./Tools/Release/releasePR.py`,
-following the instructions described in https://warpx.readthedocs.io/en/latest/maintenance/release.html#create-a-new-warpx-release.
+Following this workflow: https://warpx.readthedocs.io/en/latest/maintenance/release.html
 """,
         "--label",
         "component: documentation",

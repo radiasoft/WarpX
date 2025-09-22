@@ -8,11 +8,12 @@
 #ifndef WARPX_PhotonParticleContainer_H_
 #define WARPX_PhotonParticleContainer_H_
 
+#include "Evolve/WarpXDtType.H"
+#include "Evolve/WarpXPushType.H"
 #include "Particles/Gather/ScaleFields.H"
 #include "PhysicalParticleContainer.H"
 
 #include "Particles/WarpXParticleContainer_fwd.H"
-#include "FieldSolver/ImplicitSolvers/ImplicitOptions.H"
 
 #include <AMReX_Particles.H>
 #include <AMReX_REAL.H>
@@ -50,9 +51,9 @@ public:
                  const std::string& current_fp_string,
                  amrex::Real t,
                  amrex::Real dt,
-                 SubcyclingHalf subcycling_half=SubcyclingHalf::None,
+                 DtType a_dt_type=DtType::Full,
                  bool skip_deposition=false,
-                 ImplicitOptions const * implicit_options = nullptr) override;
+                 PushType push_type=PushType::Explicit) override;
 
     void PushPX (WarpXParIter& pti,
                         amrex::FArrayBox const * exfab,
@@ -66,7 +67,7 @@ public:
                         long np_to_push,
                         int lev, int gather_lev,
                         amrex::Real dt, ScaleFields scaleFields,
-                        SubcyclingHalf subcycling_half) override;
+                        DtType a_dt_type) override;
 
     // Do nothing
     void PushP (int /*lev*/,

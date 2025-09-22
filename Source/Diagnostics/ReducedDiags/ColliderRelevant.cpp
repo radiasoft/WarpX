@@ -73,9 +73,9 @@ ColliderRelevant::ColliderRelevant (const std::string& rd_name)
         "Collider-relevant diagnostics must involve exactly two species");
 
     // RZ coordinate is not supported
-#if (defined WARPX_DIM_RZ) || (defined WARPX_DIM_RCYLINDER) || (defined WARPX_DIM_RSPHERE)
+#if (defined WARPX_DIM_RZ)
     WARPX_ABORT_WITH_MESSAGE(
-        "Collider-relevant diagnostics do not work in cylindrical and spherical geometry.");
+        "Collider-relevant diagnostics do not work in RZ geometry.");
 #endif
 
     ablastr::warn_manager::WMRecordWarning(
@@ -190,7 +190,7 @@ ColliderRelevant::ColliderRelevant (const std::string& rd_name)
 
 void ColliderRelevant::ComputeDiags (int step)
 {
-#if (defined WARPX_DIM_RZ) || (defined WARPX_DIM_RCYLINDER) || (defined WARPX_DIM_RSPHERE)
+#if defined(WARPX_DIM_RZ)
     amrex::ignore_unused(step);
 #else
 
@@ -226,7 +226,7 @@ void ColliderRelevant::ComputeDiags (int step)
         num_dens[i_s] = myspc.GetChargeDensity(0);
         num_dens[i_s]->mult(1._prt/q);
 
-#if (AMREX_SPACEDIM == 1)
+#if defined(WARPX_DIM_1D_Z)
         // w_tot
         amrex::Real w_tot = ReduceSum( myspc,
             [=] AMREX_GPU_HOST_DEVICE (const PType& p)

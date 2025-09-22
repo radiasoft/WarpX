@@ -5,7 +5,8 @@ on:
     branches: [ "development" ]
   pull_request:
     branches: [ "development" ]
-    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: "27 3 * * 0"
 
 concurrency:
   group: ${{ github.ref }}-${{ github.head_ref }}-codeql
@@ -14,7 +15,7 @@ concurrency:
 jobs:
   analyze:
     name: Analyze
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     permissions:
       actions: read

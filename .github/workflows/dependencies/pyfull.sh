@@ -25,7 +25,6 @@ sudo apt-get install -y \
     libfftw3-mpi-dev    \
     libhdf5-openmpi-dev \
     liblapack-dev       \
-    libomp-dev          \
     libopenmpi-dev      \
     make                \
     ninja-build         \

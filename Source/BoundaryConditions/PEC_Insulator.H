@@ -91,12 +91,18 @@ public:
      * \param[in]     a_Fz_x_lo the parser for the tangential field at the boundary
      * \param[in]     a_Fy_x_hi the parser for the tangential field at the boundary
      * \param[in]     a_Fz_x_hi the parser for the tangential field at the boundary
-     * \\param[in]     set_F_z_lo whether the tangential field at the boundary was specified
-     * \\param[in]     set_F_z_hi whether the tangential field at the boundary was specified
-     * \\param[in]     a_Fx_z_lo the parser for the tangential field at the boundary
-     * \\param[in]     a_Fy_z_lo the parser for the tangential field at the boundary
-     * \\param[in]     a_Fx_z_hi the parser for the tangential field at the boundary
-     * \\param[in]     a_Fy_z_hi the parser for the tangential field at the boundary
+     * \param[in]     set_F_y_lo whether the tangential field at the boundary was specified
+     * \param[in]     set_F_y_hi whether the tangential field at the boundary was specified
+     * \param[in]     a_Fx_y_lo the parser for the tangential field at the boundary
+     * \param[in]     a_Fz_y_lo the parser for the tangential field at the boundary
+     * \param[in]     a_Fx_y_hi the parser for the tangential field at the boundary
+     * \param[in]     a_Fz_y_hi the parser for the tangential field at the boundary
+     * \param[in]     set_F_z_lo whether the tangential field at the boundary was specified
+     * \param[in]     set_F_z_hi whether the tangential field at the boundary was specified
+     * \param[in]     a_Fx_z_lo the parser for the tangential field at the boundary
+     * \param[in]     a_Fy_z_lo the parser for the tangential field at the boundary
+     * \param[in]     a_Fx_z_hi the parser for the tangential field at the boundary
+     * \param[in]     a_Fy_z_hi the parser for the tangential field at the boundary
      */
     void
     ApplyPEC_InsulatortoField (std::array<amrex::MultiFab*, 3> field,
@@ -106,23 +112,20 @@ public:
                                int lev, PatchType patch_type, amrex::Vector<amrex::IntVect> const & ref_ratios,
                                amrex::Real time,
                                bool split_pml_field,
-                               bool E_like
-#ifndef WARPX_DIM_1D_Z
-                               , bool set_F_x_lo, bool set_F_x_hi,
+                               bool E_like,
+#if (AMREX_SPACEDIM > 1)
+                               bool set_F_x_lo, bool set_F_x_hi,
                                std::unique_ptr<amrex::Parser> const & a_Fy_x_lo, std::unique_ptr<amrex::Parser> const & a_Fz_x_lo,
-                               std::unique_ptr<amrex::Parser> const & a_Fy_x_hi, std::unique_ptr<amrex::Parser> const & a_Fz_x_hi
+                               std::unique_ptr<amrex::Parser> const & a_Fy_x_hi, std::unique_ptr<amrex::Parser> const & a_Fz_x_hi,
 #endif
 #if defined(WARPX_DIM_3D)
-                               , bool set_F_y_lo, bool set_F_y_hi,
+                               bool set_F_y_lo, bool set_F_y_hi,
                                std::unique_ptr<amrex::Parser> const & a_Fx_y_lo, std::unique_ptr<amrex::Parser> const & a_Fz_y_lo,
-                               std::unique_ptr<amrex::Parser> const & a_Fx_y_hi, std::unique_ptr<amrex::Parser> const & a_Fz_y_hi
+                               std::unique_ptr<amrex::Parser> const & a_Fx_y_hi, std::unique_ptr<amrex::Parser> const & a_Fz_y_hi,
 #endif
-#if defined(WARPX_ZINDEX)
-                               , bool set_F_z_lo, bool set_F_z_hi,
+                               bool set_F_z_lo, bool set_F_z_hi,
                                std::unique_ptr<amrex::Parser> const & a_Fx_z_lo, std::unique_ptr<amrex::Parser> const & a_Fy_z_lo,
-                               std::unique_ptr<amrex::Parser> const & a_Fx_z_hi, std::unique_ptr<amrex::Parser> const & a_Fy_z_hi
-#endif
-                               );
+                               std::unique_ptr<amrex::Parser> const & a_Fx_z_hi, std::unique_ptr<amrex::Parser> const & a_Fy_z_hi);
 
 private:
 
@@ -143,7 +146,7 @@ private:
     std::vector<std::unique_ptr<amrex::Parser>> m_insulator_area_lo;
     std::vector<std::unique_ptr<amrex::Parser>> m_insulator_area_hi;
 
-#ifndef WARPX_DIM_1D_Z
+#if (AMREX_SPACEDIM > 1)
     bool m_set_B_x_lo = false, m_set_B_x_hi = false;
     std::unique_ptr<amrex::Parser> m_By_x_lo, m_Bz_x_lo;
     std::unique_ptr<amrex::Parser> m_By_x_hi, m_Bz_x_hi;
@@ -158,7 +161,7 @@ private:
     std::unique_ptr<amrex::Parser> m_Bx_z_hi, m_By_z_hi;
 
 
-#ifndef WARPX_DIM_1D_Z
+#if (AMREX_SPACEDIM > 1)
     bool m_set_E_x_lo = false, m_set_E_x_hi = false;
     std::unique_ptr<amrex::Parser> m_Ey_x_lo, m_Ez_x_lo;
     std::unique_ptr<amrex::Parser> m_Ey_x_hi, m_Ez_x_hi;

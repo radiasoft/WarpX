@@ -15,7 +15,6 @@
 AMREX_ENUM(PreconditionerType,
     pc_curl_curl_mlmg,
     pc_jacobi,
-    pc_petsc,
     none
 );
 

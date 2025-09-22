@@ -24,7 +24,7 @@
 #       endif
 #       include <hip/hip_complex.h>
 #   elif defined(AMREX_USE_SYCL)
-#       include <oneapi/mkl/dft.hpp>
+#       include <oneapi/mkl/dfti.hpp>
 #   else
 #       include <fftw3.h>
 #   endif

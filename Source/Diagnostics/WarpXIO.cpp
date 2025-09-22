@@ -173,7 +173,7 @@ WarpX::InitFromCheckpoint ()
         is >> moving_window_x_checkpoint;
         ablastr::utils::text::goto_next_line(is);
 
-        is >> m_is_synchronized;
+        is >> is_synchronized;
         ablastr::utils::text::goto_next_line(is);
 
         amrex::Vector<amrex::Real> prob_lo( AMREX_SPACEDIM );
@@ -268,12 +268,12 @@ WarpX::InitFromCheckpoint ()
                         diag.set_snapshot_full(i_buffer, snapshot_full_flag);
 
                     }
-                    diag.InitDataAfterRestart(*mypc);
+                    diag.InitDataAfterRestart();
                 } else {
-                    diag.InitData(*mypc);
+                    diag.InitData();
                 }
             } else {
-                multi_diags->GetDiag(idiag).InitData(*mypc);
+                multi_diags->GetDiag(idiag).InitData();
             }
         }
     }
@@ -331,7 +331,7 @@ WarpX::InitFromCheckpoint ()
                         amrex::MultiFabFileFullPrefix(lev, restart_chkfile, level_prefix, "Bz_avg_fp"));
         }
 
-        if (m_is_synchronized) {
+        if (is_synchronized) {
             VisMF::Read(*m_fields.get(FieldType::current_fp, Direction{0}, lev),
                         amrex::MultiFabFileFullPrefix(lev, restart_chkfile, level_prefix, "jx_fp"));
             VisMF::Read(*m_fields.get(FieldType::current_fp, Direction{1}, lev),
@@ -373,7 +373,7 @@ WarpX::InitFromCheckpoint ()
                             amrex::MultiFabFileFullPrefix(lev, restart_chkfile, level_prefix, "Bz_avg_cp"));
             }
 
-            if (m_is_synchronized) {
+            if (is_synchronized) {
                 VisMF::Read(*m_fields.get(FieldType::current_cp, Direction{0}, lev),
                             amrex::MultiFabFileFullPrefix(lev, restart_chkfile, level_prefix, "jx_cp"));
                 VisMF::Read(*m_fields.get(FieldType::current_cp, Direction{1}, lev),
@@ -410,6 +410,8 @@ WarpX::InitFromCheckpoint ()
     if (m_implicit_solver) {
 
         m_implicit_solver->Define(this);
+        m_implicit_solver->GetParticleSolverParams( max_particle_its_in_implicit_scheme,
+                                                    particle_tol_in_implicit_scheme );
         m_implicit_solver->CreateParticleAttributes();
     }
 

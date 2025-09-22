@@ -10,8 +10,6 @@
 
 #include "HybridPICModel.H"
 
-#include <ablastr/utils/Communication.H>
-
 #include "EmbeddedBoundary/Enabled.H"
 #include "Python/callbacks.H"
 #include "Fields.H"
@@ -198,6 +196,26 @@ void HybridPICModel::InitData (const ablastr::fields::MultiFabRegister& fields)
     amrex::IntVect Ex_stag = fields.get(FieldType::Efield_fp, Direction{0}, 0)->ixType().toIntVect();
     amrex::IntVect Ey_stag = fields.get(FieldType::Efield_fp, Direction{1}, 0)->ixType().toIntVect();
     amrex::IntVect Ez_stag = fields.get(FieldType::Efield_fp, Direction{2}, 0)->ixType().toIntVect();
+
+    // Check that the grid types are appropriate
+    const bool appropriate_grids = (
+#if   defined(WARPX_DIM_1D_Z)
+        // AMReX convention: x = missing dimension, y = missing dimension, z = only dimension
+        Ex_stag == IntVect(1) && Ey_stag == IntVect(1) && Ez_stag == IntVect(0) &&
+        Bx_stag == IntVect(0) && By_stag == IntVect(0) && Bz_stag == IntVect(1) &&
+#elif   defined(WARPX_DIM_XZ) || defined(WARPX_DIM_RZ)
+        // AMReX convention: x = first dimension, y = missing dimension, z = second dimension
+        Ex_stag == IntVect(0,1) && Ey_stag == IntVect(1,1) && Ez_stag == IntVect(1,0) &&
+        Bx_stag == IntVect(1,0) && By_stag == IntVect(0,0) && Bz_stag == IntVect(0,1) &&
+#elif defined(WARPX_DIM_3D)
+        Ex_stag == IntVect(0,1,1) && Ey_stag == IntVect(1,0,1) && Ez_stag == IntVect(1,1,0) &&
+        Bx_stag == IntVect(1,0,0) && By_stag == IntVect(0,1,0) && Bz_stag == IntVect(0,0,1) &&
+#endif
+        Jx_stag == Ex_stag && Jy_stag == Ey_stag && Jz_stag == Ez_stag
+    );
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+        appropriate_grids,
+        "Ohm's law E-solve only works with staggered (Yee) grids.");
 
     // copy data to device
     for ( int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
@@ -400,11 +418,7 @@ void HybridPICModel::CalculateElectronPressure(const int lev) const
         *rho_fp
     );
     warpx.ApplyElectronPressureBoundary(lev, PatchType::fine);
-    ablastr::utils::communication::FillBoundary(
-        *electron_pressure_fp,
-        WarpX::do_single_precision_comms,
-        warpx.Geom(lev).periodicity(),
-        true);
+    electron_pressure_fp->FillBoundary(warpx.Geom(lev).periodicity());
 }
 
 void HybridPICModel::FillElectronPressureMF (
@@ -443,14 +457,14 @@ void HybridPICModel::BfieldEvolveRK (
     ablastr::fields::MultiLevelVectorField const& Jfield,
     ablastr::fields::MultiLevelScalarField const& rhofield,
     amrex::Vector<std::array< std::unique_ptr<amrex::iMultiFab>,3 > >& eb_update_E,
-    amrex::Real dt, SubcyclingHalf subcycling_half,
+    amrex::Real dt, DtType dt_type,
     IntVect ng, std::optional<bool> nodal_sync )
 {
     auto& warpx = WarpX::GetInstance();
     for (int lev = 0; lev <= warpx.finestLevel(); ++lev)
     {
         BfieldEvolveRK(
-            Bfield, Efield, Jfield, rhofield, eb_update_E, dt, lev, subcycling_half,
+            Bfield, Efield, Jfield, rhofield, eb_update_E, dt, lev, dt_type,
             ng, nodal_sync
         );
     }
@@ -462,7 +476,7 @@ void HybridPICModel::BfieldEvolveRK (
     ablastr::fields::MultiLevelVectorField const& Jfield,
     ablastr::fields::MultiLevelScalarField const& rhofield,
     amrex::Vector<std::array< std::unique_ptr<amrex::iMultiFab>,3 > >& eb_update_E,
-    amrex::Real dt, int lev, SubcyclingHalf subcycling_half,
+    amrex::Real dt, int lev, DtType dt_type,
     IntVect ng, std::optional<bool> nodal_sync )
 {
     // Make copies of the B-field multifabs at t = n and create multifabs for
@@ -489,7 +503,7 @@ void HybridPICModel::BfieldEvolveRK (
     // Step 1:
     FieldPush(
         Bfield, Efield, Jfield, rhofield, eb_update_E,
-        0.5_rt*dt, subcycling_half, ng, nodal_sync
+        0.5_rt*dt, dt_type, ng, nodal_sync
     );
 
     // The Bfield is now given by:
@@ -505,7 +519,7 @@ void HybridPICModel::BfieldEvolveRK (
     // Step 2:
     FieldPush(
         Bfield, Efield, Jfield, rhofield, eb_update_E,
-        0.5_rt*dt, subcycling_half, ng, nodal_sync
+        0.5_rt*dt, dt_type, ng, nodal_sync
     );
 
     // The Bfield is now given by:
@@ -525,7 +539,7 @@ void HybridPICModel::BfieldEvolveRK (
     // Step 3:
     FieldPush(
         Bfield, Efield, Jfield, rhofield, eb_update_E,
-        dt, subcycling_half, ng, nodal_sync
+        dt, dt_type, ng, nodal_sync
     );
 
     // The Bfield is now given by:
@@ -541,7 +555,7 @@ void HybridPICModel::BfieldEvolveRK (
     // Step 4:
     FieldPush(
         Bfield, Efield, Jfield, rhofield, eb_update_E,
-        0.5_rt*dt, subcycling_half, ng, nodal_sync
+        0.5_rt*dt, dt_type, ng, nodal_sync
     );
 
     // The Bfield is now given by:
@@ -576,7 +590,7 @@ void HybridPICModel::FieldPush (
     ablastr::fields::MultiLevelVectorField const& Jfield,
     ablastr::fields::MultiLevelScalarField const& rhofield,
     amrex::Vector<std::array< std::unique_ptr<amrex::iMultiFab>,3 > >& eb_update_E,
-    amrex::Real dt, SubcyclingHalf subcycling_half,
+    amrex::Real dt, DtType dt_type,
     IntVect ng, std::optional<bool> nodal_sync )
 {
     auto& warpx = WarpX::GetInstance();
@@ -590,6 +604,6 @@ void HybridPICModel::FieldPush (
     warpx.FillBoundaryE(ng, nodal_sync);
 
     // Push forward the B-field using Faraday's law
-    warpx.EvolveB(dt, subcycling_half, t_old);
+    warpx.EvolveB(dt, dt_type, t_old);
     warpx.FillBoundaryB(ng, nodal_sync);
 }

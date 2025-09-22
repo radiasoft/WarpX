@@ -8,7 +8,7 @@ if(WarpX_EB)
         2  # nprocs
         inputs_test_3d_electrostatic_sphere_eb  # inputs
         "analysis.py"  # analysis
-        "analysis_default_regression.py --path diags/diag1/"  # checksum
+        "analysis_default_regression.py --path diags/diag1000001"  # checksum
         OFF  # dependency
     )
 endif()
@@ -32,7 +32,7 @@ if(WarpX_EB)
         2  # nprocs
         inputs_test_3d_electrostatic_sphere_eb_picmi.py  # inputs
         "analysis.py"  # analysis
-        "analysis_default_regression.py --path diags/diag1/"  # checksum
+        "analysis_default_regression.py --path diags/diag1000002"  # checksum
         OFF  # dependency
     )
 endif()

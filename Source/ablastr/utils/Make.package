@@ -1,5 +1,4 @@
 CEXE_sources += Communication.cpp
-CEXE_sources += RelativeCellPosition.cpp
 CEXE_sources += SignalHandling.cpp
 CEXE_sources += TextMsg.cpp
 CEXE_sources += UsedInputsFile.cpp

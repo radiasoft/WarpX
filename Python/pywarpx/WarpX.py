@@ -8,6 +8,7 @@
 import re
 import sys
 
+from . import Particles
 from ._libwarpx import libwarpx
 from .Algo import algo
 from .Amr import amr
@@ -23,6 +24,7 @@ from .HybridPICModel import external_vector_potential, hybridpicmodel
 from .Interpolation import interpolation
 from .Lasers import lasers, lasers_list
 from .Particles import particles, particles_list
+from .ProjectionDivBCleaner import projectiondivbcleaner
 from .PSATD import psatd
 
 
@@ -48,8 +50,24 @@ class WarpX(Bucket):
         argv += boundary.attrlist()
         argv += algo.attrlist()
         argv += interpolation.attrlist()
+        argv += projectiondivbcleaner.attrlist()
         argv += psatd.attrlist()
         argv += eb2.attrlist()
+
+        # --- Search through species_names and add any predefined particle objects in the list.
+        particles_list_names = [p.instancename for p in particles_list]
+        for pstring in particles.species_names:
+            if pstring in particles_list_names:
+                # --- The species is already included in particles_list
+                continue
+            elif hasattr(Particles, pstring):
+                # --- Add the predefined species to particles_list
+                particles_list.append(getattr(Particles, pstring))
+                particles_list_names.append(pstring)
+            else:
+                raise Exception(
+                    "Species %s listed in species_names not defined" % pstring
+                )
 
         argv += particles.attrlist()
         for particle in particles_list:
