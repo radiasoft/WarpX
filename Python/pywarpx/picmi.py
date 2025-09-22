@@ -301,6 +301,9 @@ class Species(picmistandard.PICMI_Species):
         self.resampling_algorithm_target_weight = kw.pop(
             "warpx_resampling_algorithm_target_weight", None
         )
+        self.warpx_resampling_algorithm_target_ratio = kw.pop(
+            "warpx_resampling_algorithm_target_ratio", None
+        )
         self.resampling_algorithm_velocity_grid_type = kw.pop(
             "warpx_resampling_algorithm_velocity_grid_type", None
         )
@@ -2100,6 +2103,9 @@ class ElectrostaticSolver(picmistandard.PICMI_ElectrostaticSolver):
         # Open BC means FieldBoundaryType::Open for electrostatic sims, rather than perfectly-matched layer
         BC_map["open"] = "open"
 
+        # Open BC means FieldBoundaryType::Open for electrostatic sims, rather than perfectly-matched layer
+        BC_map['open'] = 'open'
+        
         self.grid.grid_initialize_inputs()
 
         # set adaptive timestepping parameters
@@ -2129,7 +2135,7 @@ class ElectrostaticSolver(picmistandard.PICMI_ElectrostaticSolver):
             pywarpx.boundary.potential_hi_x = self.grid.potential_xmax
             pywarpx.boundary.potential_hi_y = self.grid.potential_ymax
             pywarpx.boundary.potential_hi_z = self.grid.potential_zmax
-
+            
         pywarpx.warpx.poisson_solver = self.method
 
 
@@ -2603,6 +2609,7 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         background_mass=None,
         max_background_density=None,
         ndt=None,
+        electron_species=None,
         **kw,
     ):
         self.name = name
@@ -2613,6 +2620,7 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         self.scattering_processes = scattering_processes
         self.max_background_density = max_background_density
         self.ndt = ndt
+        self.electron_species = electron_species
 
         self.handle_init(kw)
 
@@ -2635,6 +2643,8 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         collision.background_mass = self.background_mass
         collision.max_background_density = self.max_background_density
         collision.ndt = self.ndt
+        if self.electron_species is not None:
+            collision.electron_species = self.electron_species.name
 
         collision.scattering_processes = self.scattering_processes.keys()
         for process, kw in self.scattering_processes.items():
