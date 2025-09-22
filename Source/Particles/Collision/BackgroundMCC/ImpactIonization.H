@@ -9,6 +9,7 @@
 
 #include "Particles/Collision/ScatteringProcess.H"
 
+#include "Particles/Algorithms/KineticEnergy.H"
 #include "Utils/ParticleUtils.H"
 #include "Utils/WarpXConst.H"
 
@@ -94,16 +95,15 @@ public:
         const ParticleReal uz = ptd.m_rdata[PIdx::uz][i];
 
         // calculate kinetic energy
-        // TODO: this should probably be generalized, to calculate the energy in the center-of-mass frame
-        // (The WarpX documentation for the `cross_section` data file specifies that "The energy column
-        // should represent the kinetic energy of the colliding particles in the center-of-mass frame.")
-        const ParticleReal u_coll2 = ux*ux + uy*uy + uz*uz;
-        ParticleUtils::getEnergy(u_coll2, m_mass, E_coll);
+        constexpr auto eV = PhysConst::q_e;
+        E_coll = Algorithms::KineticEnergy<double>(ux, uy, uz, m_mass)/eV;
+
 
         // get collision cross-section
         const ParticleReal sigma_E = m_mcc_process.getCrossSection(static_cast<amrex::ParticleReal>(E_coll));
 
         // calculate normalized collision frequency
+        const ParticleReal u_coll2 = ux*ux + uy*uy + uz*uz;
         const ParticleReal nu_i = n_a * sigma_E * sqrt(u_coll2) / m_nu_max;
 
         // check if this collision should be performed
@@ -203,25 +203,23 @@ public:
         auto& i_uz = dst2.m_rdata[PIdx::uz][i_dst2];
 
         // calculate kinetic energy
+
+        constexpr auto eV = PhysConst::q_e;
+        E_coll = Algorithms::KineticEnergy<double>(ux, uy, uz, m_mass1)/eV;
+
+        // precalculate often used value
         const ParticleReal u_coll2 = ux*ux + uy*uy + uz*uz;
-        ParticleUtils::getEnergy(u_coll2, m_mass1, E_coll);
         
         // calculate unit vector of the incident species
         const amrex::ParticleReal x_unit = ux / sqrt(u_coll2);
         const amrex::ParticleReal y_unit = uy / sqrt(u_coll2);
         const amrex::ParticleReal z_unit = uz / sqrt(u_coll2);
         
-        // the incident particle gets half of the available energy
-        // the ionized electron gets the other half of the available energy
-        // TODO: This should be changed to encode the correct physics
-        // const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost) / 2.0_prt * PhysConst::q_e);
-        
         // E_coll == T_impact
         const auto W_max = E_coll / 300.0_prt;
         const auto W_elec = Random(engine)*W_max;
         
         // const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost) * PhysConst::q_e);
-        
         const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost - W_elec) * PhysConst::q_e);
         constexpr auto c2 = PhysConst::c * PhysConst::c;
 

@@ -39,12 +39,12 @@ class constants:
     # --- Put the constants in their own namespace
     # --- Values from WarpXConst.H
     c = 299792458.0
-    ep0 = 8.8541878128e-12
-    mu0 = 1.25663706212e-06
+    ep0 = 8.8541878188e-12
+    mu0 = 1.2566370612685e-06
     q_e = 1.602176634e-19
-    m_e = 9.1093837015e-31
-    m_p = 1.67262192369e-27
-    hbar = 1.054571817e-34
+    m_e = 9.1093837139e-31
+    m_p = 1.67262192595e-27
+    hbar = 1.0545718176461565e-34
     kb = 1.380649e-23
 
 
@@ -88,6 +88,9 @@ class Species(picmistandard.PICMI_Species):
 
     warpx_do_not_gather: bool, default=False
         Whether or not to gather the fields from grids for this species
+
+    warpx_radial_numpercell_power: float, default=0.
+        With cylindrical geometry, specifies the radial power of the number of particles per cell
 
     warpx_random_theta: bool, default=True
         Whether or not to add random angle to the particles in theta
@@ -187,6 +190,10 @@ class Species(picmistandard.PICMI_Species):
     warpx_add_real_attributes: dict
         Dictionary of extra real particle attributes initialized from an
         expression that is a function of the variables (x, y, z, ux, uy, uz, t).
+
+    warpx_do_temperature_deposition: bool, default=False
+        This flag is set per species to do another pass to deposit temperature
+        on each timestep if required. Currently only works with Ohm's Law Hybrid Solver.
     """
 
     def init(self, kw):
@@ -260,6 +267,7 @@ class Species(picmistandard.PICMI_Species):
         self.do_not_deposit = kw.pop("warpx_do_not_deposit", None)
         self.do_not_push = kw.pop("warpx_do_not_push", None)
         self.do_not_gather = kw.pop("warpx_do_not_gather", None)
+        self.radial_numpercell_power = kw.pop("warpx_radial_numpercell_power", None)
         self.random_theta = kw.pop("warpx_random_theta", None)
 
         # For particle reflection
@@ -321,6 +329,8 @@ class Species(picmistandard.PICMI_Species):
         self.extra_int_attributes = kw.pop("warpx_add_int_attributes", None)
         self.extra_real_attributes = kw.pop("warpx_add_real_attributes", None)
 
+        self.do_temperature_deposition = kw.pop("warpx_do_temperature_deposition", None)
+
     def species_initialize_inputs(
         self,
         layout,
@@ -360,6 +370,7 @@ class Species(picmistandard.PICMI_Species):
             do_not_deposit=self.do_not_deposit,
             do_not_push=self.do_not_push,
             do_not_gather=self.do_not_gather,
+            radial_numpercell_power=self.radial_numpercell_power,
             random_theta=self.random_theta,
             do_resampling=self.do_resampling,
             resampling_algorithm=self.resampling_algorithm,
@@ -372,6 +383,7 @@ class Species(picmistandard.PICMI_Species):
             resampling_algorithm_n_theta=self.resampling_algorithm_n_theta,
             resampling_algorithm_n_phi=self.resampling_algorithm_n_phi,
             resampling_algorithm_delta_u=self.resampling_algorithm_delta_u,
+            do_temperature_deposition=self.do_temperature_deposition,
         )
 
         # add reflection models
@@ -1515,14 +1527,21 @@ class ElectromagneticSolver(picmistandard.PICMI_ElectromagneticSolver):
     warpx_psatd_do_time_averaging: bool, optional
         Whether to do the time averaging for the spectral solver
 
-    warpx_psatd_J_in_time: {'constant', 'linear'}, default='constant'
-        This determines whether the current density is assumed to be constant
-        or linear in time, within the time step over which the electromagnetic
-        fields are evolved.
-
-    warpx_psatd_rho_in_time: {'linear'}, default='linear'
-        This determines whether the charge density is assumed to be linear
-        in time, within the time step over which the electromagnetic fields are evolved.
+    warpx_psatd_JRhom: str
+        This determines whether the PSATD JRhom algorithm is used.
+        The parameter is a string composed by two characters and one digit.
+        The first character represents the time dependency of J within the
+        time step over which the electromagnetic fields are evolved, e.g.,
+        "C" for constant in time, "L" for linear in time, "Q" for quadratic
+        in time.
+        The second character represents the time dependency of rho within the
+        time step over which the electromagnetic fields are evolved, following
+        the same naming convention as for J.
+        The last digit is an integer that represents the number of subintervals
+        used in the JRhom algorithm.
+        Examples: "CL1" (equivalent to the standard PSATD PIC algorithm),
+        "CL2", "LL4", etc.
+        By default, the string is empty and the JRhom algorithm is not used.
 
     warpx_do_pml_in_domain: bool, default=False
         Whether to do the PML boundaries within the domain (versus
@@ -1552,8 +1571,7 @@ class ElectromagneticSolver(picmistandard.PICMI_ElectromagneticSolver):
             self.psatd_current_correction = kw.pop("warpx_current_correction", None)
             self.psatd_update_with_rho = kw.pop("warpx_psatd_update_with_rho", None)
             self.psatd_do_time_averaging = kw.pop("warpx_psatd_do_time_averaging", None)
-            self.psatd_J_in_time = kw.pop("warpx_psatd_J_in_time", None)
-            self.psatd_rho_in_time = kw.pop("warpx_psatd_rho_in_time", None)
+            self.psatd_JRhom = kw.pop("warpx_psatd_JRhom", None)
 
         self.do_pml_in_domain = kw.pop("warpx_do_pml_in_domain", None)
         self.pml_has_particles = kw.pop("warpx_pml_has_particles", None)
@@ -1569,8 +1587,7 @@ class ElectromagneticSolver(picmistandard.PICMI_ElectromagneticSolver):
             pywarpx.psatd.current_correction = self.psatd_current_correction
             pywarpx.psatd.update_with_rho = self.psatd_update_with_rho
             pywarpx.psatd.do_time_averaging = self.psatd_do_time_averaging
-            pywarpx.psatd.J_in_time = self.psatd_J_in_time
-            pywarpx.psatd.rho_in_time = self.psatd_rho_in_time
+            pywarpx.psatd.JRhom = self.psatd_JRhom
 
             if self.grid.guard_cells is not None:
                 pywarpx.psatd.nx_guard = self.grid.guard_cells[0]
@@ -1841,7 +1858,7 @@ class HybridPICSolver(picmistandard.base._ClassWithInit):
     n0: float
         Reference plasma density in m^-3.
 
-    gamma: float, default=3/2
+    gamma: float, default=5/3
         Exponent in calculation of electron pressure.
 
     n_floor: float, optional
@@ -1857,7 +1874,7 @@ class HybridPICSolver(picmistandard.base._ClassWithInit):
         Number of substeps to take when updating the B-field.
 
     holmstrom_vacuum_region: bool, default=False
-        Flag to determine handling of vacuum region. Setting to True will solve the simplified Generalized Ohm's Law dropping the Hall and pressure terms in the vacuum region.
+        Flag to determine handling of vacuum region (where rho < n_floor*q_e). Setting to True will solve the simplified Generalized Ohm's Law dropping the Hall and pressure terms in the vacuum region. See `Holmstrom (2013) <https://arxiv.org/abs/1301.0272v1>`_.
         This flag is useful for suppressing vacuum region fluctuations. A large resistivity value must be used when rho <= rho_floor.
 
     Jx/y/z_external_function: str
@@ -1887,6 +1904,10 @@ class HybridPICSolver(picmistandard.base._ClassWithInit):
             },
             '<field_name2>: {...}'
         }
+
+    do_external_diva_cleaning: bool (default=True)
+        This flag can be used to disable divA cleaning. This may be necessary when using a non-periodic
+        external A with periodic field boundary conditions.
     """
 
     def __init__(
@@ -1904,6 +1925,7 @@ class HybridPICSolver(picmistandard.base._ClassWithInit):
         Jy_external_function=None,
         Jz_external_function=None,
         A_external=None,
+        do_external_diva_cleaning=None,
         **kw,
     ):
         self.grid = grid
@@ -1925,6 +1947,8 @@ class HybridPICSolver(picmistandard.base._ClassWithInit):
         self.Jz_external_function = Jz_external_function
 
         self.A_external = A_external
+
+        self.do_external_diva_cleaning = do_external_diva_cleaning
 
         # Handle keyword arguments used in expressions
         self.user_defined_kw = {}
@@ -1987,6 +2011,9 @@ class HybridPICSolver(picmistandard.base._ClassWithInit):
                 pywarpx.my_constants.mangle_expression(
                     list(self.A_external.keys()), self.mangle_dict
                 ),
+            )
+            pywarpx.external_vector_potential.do_diva_cleaning = (
+                self.do_external_diva_cleaning
             )
             for field_name, field_dict in self.A_external.items():
                 if field_dict.get("read_from_file", False):
@@ -2204,10 +2231,25 @@ class LaserAntenna(picmistandard.PICMI_LaserAntenna):
 
 
 class LoadInitialField(picmistandard.PICMI_LoadGriddedField):
+    """
+    Field Initializer that loads the initial field from a file.
+
+    Parameters
+    ----------
+    warpx_do_initial_div_cleaning: bool, default=True
+        Flag that controls whether or not to execute the Projection based B-field divergence cleaner.
+
+    warpx_projection_div_cleaner_atol: float
+        Controls the absolute tolerance used in the divergence cleaner solve.
+
+    warpx_projection_div_cleaner_rtol: float
+        Controls the relative tolerance used in the divergence cleaner solve.
+    """
+
     def init(self, kw):
-        self.do_divb_cleaning_external = kw.pop("warpx_do_divb_cleaning_external", None)
-        self.divb_cleaner_atol = kw.pop("warpx_projection_divb_cleaner_atol", None)
-        self.divb_cleaner_rtol = kw.pop("warpx_projection_divb_cleaner_rtol", None)
+        self.do_initial_div_cleaning = kw.pop("warpx_do_initial_div_cleaning", None)
+        self.div_cleaner_atol = kw.pop("warpx_projection_div_cleaner_atol", None)
+        self.div_cleaner_rtol = kw.pop("warpx_projection_div_cleaner_rtol", None)
 
     def applied_field_initialize_inputs(self):
         pywarpx.warpx.read_fields_from_path = self.read_fields_from_path
@@ -2215,9 +2257,13 @@ class LoadInitialField(picmistandard.PICMI_LoadGriddedField):
             pywarpx.warpx.E_ext_grid_init_style = "read_from_file"
         if self.load_B:
             pywarpx.warpx.B_ext_grid_init_style = "read_from_file"
-            pywarpx.warpx.do_divb_cleaning_external = self.do_divb_cleaning_external
-            pywarpx.projectiondivbcleaner.atol = self.divb_cleaner_atol
-            pywarpx.projectiondivbcleaner.rtol = self.divb_cleaner_rtol
+            pywarpx.warpx.do_initial_div_cleaning = self.do_initial_div_cleaning
+            pywarpx.warpx.add_new_group_attr(
+                "projection_div_cleaner", "atol", self.div_cleaner_atol
+            )
+            pywarpx.warpx.add_new_group_attr(
+                "projection_div_cleaner", "rtol", self.div_cleaner_rtol
+            )
 
 
 class LoadInitialFieldFromPython:
@@ -2230,8 +2276,14 @@ class LoadInitialFieldFromPython:
 
     Parameters
     ----------
-    warpx_do_divb_cleaning_external: bool, default=True
+    warpx_do_initial_div_cleaning: bool, default=True
         Flag that controls whether or not to execute the Projection based B-field divergence cleaner.
+
+    warpx_projection_div_cleaner_atol: float
+        Controls the absolute tolerance used in the divergence cleaner solve.
+
+    warpx_projection_div_cleaner_rtol: float
+        Controls the relative tolerance used in the divergence cleaner solve.
 
     load_E: bool, default=True
         E field is expected to be loaded in the registered callback.
@@ -2241,9 +2293,9 @@ class LoadInitialFieldFromPython:
     """
 
     def __init__(self, **kw):
-        self.do_divb_cleaning_external = kw.pop("warpx_do_divb_cleaning_external", None)
-        self.divb_cleaner_atol = kw.pop("warpx_projection_divb_cleaner_atol", None)
-        self.divb_cleaner_rtol = kw.pop("warpx_projection_divb_cleaner_rtol", None)
+        self.do_initial_div_cleaning = kw.pop("warpx_do_initial_div_cleaning", None)
+        self.div_cleaner_atol = kw.pop("warpx_projection_div_cleaner_atol", None)
+        self.div_cleaner_rtol = kw.pop("warpx_projection_div_cleaner_rtol", None)
 
         # If using load_from_python, a function handle is expected for callback
         self.load_from_python = kw.pop("load_from_python")
@@ -2255,17 +2307,42 @@ class LoadInitialFieldFromPython:
             pywarpx.warpx.E_ext_grid_init_style = "load_from_python"
         if self.load_B:
             pywarpx.warpx.B_ext_grid_init_style = "load_from_python"
-            pywarpx.warpx.do_divb_cleaning_external = self.do_divb_cleaning_external
-            pywarpx.projectiondivbcleaner.atol = self.divb_cleaner_atol
-            pywarpx.projectiondivbcleaner.rtol = self.divb_cleaner_rtol
+            pywarpx.warpx.do_initial_div_cleaning = self.do_initial_div_cleaning
+            pywarpx.warpx.add_new_group_attr(
+                "projection_div_cleaner", "atol", self.div_cleaner_atol
+            )
+            pywarpx.warpx.add_new_group_attr(
+                "projection_div_cleaner", "rtol", self.div_cleaner_rtol
+            )
 
         pywarpx.callbacks.installloadExternalFields(self.load_from_python)
 
 
 class AnalyticInitialField(picmistandard.PICMI_AnalyticAppliedField):
-    def init(self, kw):
+    """
+    Field Initializer that takes an implicit function to be loaded as an initial E/B field.
+
+    Parameters
+    ----------
+    warpx_do_initial_div_cleaning: bool, default=True
+        Flag that controls whether or not to execute the Projection based B-field divergence cleaner.
+
+    warpx_projection_div_cleaner_atol: float
+        Controls the absolute tolerance used in the divergence cleaner solve.
+
+    warpx_projection_div_cleaner_rtol: float
+        Controls the relative tolerance used in the divergence cleaner solve.
+    """
+
+    def __init__(self, **kw):
         self.mangle_dict = None
         self.maxlevel_extEMfield_init = kw.pop("warpx_maxlevel_extEMfield_init", None)
+
+        self.do_initial_div_cleaning = kw.pop("warpx_do_initial_div_cleaning", None)
+        self.div_cleaner_atol = kw.pop("warpx_projection_div_cleaner_atol", None)
+        self.div_cleaner_rtol = kw.pop("warpx_projection_div_cleaner_rtol", None)
+
+        super().__init__(**kw)
 
     def applied_field_initialize_inputs(self):
         # Note that lower and upper_bound are not used by WarpX
@@ -2309,15 +2386,36 @@ class AnalyticInitialField(picmistandard.PICMI_AnalyticAppliedField):
                 pywarpx.warpx.__setattr__(
                     f"B{sdir}_external_grid_function(x,y,z)", expression
                 )
+            pywarpx.warpx.do_initial_div_cleaning = self.do_initial_div_cleaning
+            pywarpx.warpx.add_new_group_attr(
+                "projection_div_cleaner", "atol", self.div_cleaner_atol
+            )
+            pywarpx.warpx.add_new_group_attr(
+                "projection_div_cleaner", "rtol", self.div_cleaner_rtol
+            )
 
 
 class LoadAppliedField(picmistandard.PICMI_LoadAppliedField):
+    def __init__(self, **kw):
+        self.do_initial_div_cleaning = kw.pop("warpx_do_initial_div_cleaning", None)
+        self.div_cleaner_atol = kw.pop("warpx_projection_div_cleaner_atol", None)
+        self.div_cleaner_rtol = kw.pop("warpx_projection_div_cleaner_rtol", None)
+
+        super().__init__(**kw)
+
     def applied_field_initialize_inputs(self):
         pywarpx.particles.read_fields_from_path = self.read_fields_from_path
         if self.load_E:
             pywarpx.particles.E_ext_particle_init_style = "read_from_file"
         if self.load_B:
             pywarpx.particles.B_ext_particle_init_style = "read_from_file"
+            pywarpx.warpx.do_initial_div_cleaning = self.do_initial_div_cleaning
+            pywarpx.warpx.add_new_group_attr(
+                "projection_div_cleaner", "atol", self.div_cleaner_atol
+            )
+            pywarpx.warpx.add_new_group_attr(
+                "projection_div_cleaner", "rtol", self.div_cleaner_rtol
+            )
 
 
 class ConstantAppliedField(picmistandard.PICMI_ConstantAppliedField):
@@ -2574,8 +2672,8 @@ class DSMCCollisions(picmistandard.base._ClassWithInit):
         The scattering process to use and any needed information
 
     product_species: list
-        The species produced by collision processes (currently only ionization
-        products are supported).
+        The species produced by collision processes (currently both
+        ionization and charge-exchange require defining the product species).
 
     ndt: integer, optional
         The collisions will be applied every "ndt" steps. Must be 1 or larger.
@@ -2809,15 +2907,6 @@ class Simulation(picmistandard.PICMI_Simulation):
     warpx_use_filter: bool, optional
         Whether to use filtering. The default depends on the conditions.
 
-    warpx_do_multi_J: bool, default=0
-        Whether to use the multi-J algorithm, where current deposition and
-        field update are performed multiple times within each time step.
-
-    warpx_do_multi_J_n_depositions: integer
-        Number of sub-steps to use with the multi-J algorithm, when ``warpx_do_multi_J=1``.
-        Note that this input parameter is not optional and must always be set in all
-        input files where ``warpx.do_multi_J=1``. No default value is provided automatically.
-
     warpx_grid_type: {'collocated', 'staggered', 'hybrid'}, default='staggered'
         Whether to use a collocated grid (all fields defined at the cell nodes),
         a staggered grid (fields defined on a Yee grid), or a hybrid grid
@@ -2985,8 +3074,6 @@ class Simulation(picmistandard.PICMI_Simulation):
         self.field_gathering_algo = kw.pop("warpx_field_gathering_algo", None)
         self.particle_pusher_algo = kw.pop("warpx_particle_pusher_algo", None)
         self.use_filter = kw.pop("warpx_use_filter", None)
-        self.do_multi_J = kw.pop("warpx_do_multi_J", None)
-        self.do_multi_J_n_depositions = kw.pop("warpx_do_multi_J_n_depositions", None)
         self.grid_type = kw.pop("warpx_grid_type", None)
         self.do_current_centering = kw.pop("warpx_do_current_centering", None)
         self.field_centering_order = kw.pop("warpx_field_centering_order", None)
@@ -3045,6 +3132,15 @@ class Simulation(picmistandard.PICMI_Simulation):
 
         self.synchronize_velocity = kw.pop("warpx_synchronize_velocity", None)
 
+        self.self_fields_required_precision = kw.pop(
+            "warpx_self_fields_required_precision", None
+        )
+        self.self_fields_absolute_tolerance = kw.pop(
+            "warpx_self_fields_absolute_tolerance", None
+        )
+        self.self_fields_max_iters = kw.pop("warpx_self_fields_max_iters", None)
+        self.self_fields_verbosity = kw.pop("warpx_self_fields_verbosity", None)
+
         self.inputs_initialized = False
         self.warpx_initialized = False
 
@@ -3092,8 +3188,6 @@ class Simulation(picmistandard.PICMI_Simulation):
         pywarpx.warpx.grid_type = self.grid_type
         pywarpx.warpx.do_current_centering = self.do_current_centering
         pywarpx.warpx.use_filter = self.use_filter
-        pywarpx.warpx.do_multi_J = self.do_multi_J
-        pywarpx.warpx.do_multi_J_n_depositions = self.do_multi_J_n_depositions
         pywarpx.warpx.serialize_initial_conditions = self.serialize_initial_conditions
         pywarpx.warpx.random_seed = self.random_seed
         pywarpx.warpx.used_inputs_file = self.used_inputs_file
@@ -3142,6 +3236,15 @@ class Simulation(picmistandard.PICMI_Simulation):
             else:
                 interpolation_order = particle_shape
             pywarpx.algo.particle_shape = interpolation_order
+
+        pywarpx.warpx.self_fields_required_precision = (
+            self.self_fields_required_precision
+        )
+        pywarpx.warpx.self_fields_absolute_tolerance = (
+            self.self_fields_absolute_tolerance
+        )
+        pywarpx.warpx.self_fields_max_iters = self.self_fields_max_iters
+        pywarpx.warpx.self_fields_verbosity = self.self_fields_verbosity
 
         self.solver.solver_initialize_inputs()
 
@@ -3347,6 +3450,9 @@ class FieldDiagnostic(picmistandard.PICMI_FieldDiagnostic, WarpXDiagnosticBase):
         Species for which to calculate particle_fields_to_plot functions. Fields will
         be calculated separately for each specified species. If not passed, default is
         all of the available particle species.
+
+    warpx_verbose: int, optional
+        Verbosity level to use for printing diagnostic output information.
     """
 
     def init(self, kw):
@@ -3363,6 +3469,7 @@ class FieldDiagnostic(picmistandard.PICMI_FieldDiagnostic, WarpXDiagnosticBase):
         self.dump_last_timestep = kw.pop("warpx_dump_last_timestep", None)
         self.particle_fields_to_plot = kw.pop("warpx_particle_fields_to_plot", [])
         self.particle_fields_species = kw.pop("warpx_particle_fields_species", None)
+        self.verbose = kw.pop("warpx_verbose", None)
 
     def diagnostic_initialize_inputs(self):
         self.add_diagnostic()
@@ -3375,6 +3482,7 @@ class FieldDiagnostic(picmistandard.PICMI_FieldDiagnostic, WarpXDiagnosticBase):
         self.diagnostic.dump_rz_modes = self.dump_rz_modes
         self.diagnostic.dump_last_timestep = self.dump_last_timestep
         self.diagnostic.intervals = self.period
+        self.diagnostic.set_or_replace_attr("verbose", self.verbose)
         self.diagnostic.diag_lo = self.lower_bound
         self.diagnostic.diag_hi = self.upper_bound
         if self.number_of_cells is not None:
@@ -3395,6 +3503,7 @@ class FieldDiagnostic(picmistandard.PICMI_FieldDiagnostic, WarpXDiagnosticBase):
                 "Jz_displacement",
             ]
             A_fields_list = ["Ar", "At", "Az"]
+            T_fields_list = ["Tr_", "Tt_", "Tz_"]
         else:
             E_fields_list = ["Ex", "Ey", "Ez"]
             B_fields_list = ["Bx", "By", "Bz"]
@@ -3405,6 +3514,7 @@ class FieldDiagnostic(picmistandard.PICMI_FieldDiagnostic, WarpXDiagnosticBase):
                 "Jz_displacement",
             ]
             A_fields_list = ["Ax", "Ay", "Az"]
+            T_fields_list = ["Tx_", "Ty_", "Tz_"]
         if self.data_list is not None:
             for dataname in self.data_list:
                 if dataname == "E":
@@ -3437,6 +3547,7 @@ class FieldDiagnostic(picmistandard.PICMI_FieldDiagnostic, WarpXDiagnosticBase):
                     "divB",
                     "proc_number",
                     "part_per_cell",
+                    "eb_covered",
                 ]:
                     fields_to_plot.add(dataname)
                 elif dataname in J_fields_list:
@@ -3448,6 +3559,8 @@ class FieldDiagnostic(picmistandard.PICMI_FieldDiagnostic, WarpXDiagnosticBase):
                     fields_to_plot.add(dataname)
                 elif dataname.startswith("T_"):
                     # Adds T_species diagnostic
+                    fields_to_plot.add(dataname)
+                elif any([dataname.startswith(tstr) for tstr in T_fields_list]):
                     fields_to_plot.add(dataname)
                 elif dataname == "dive":
                     fields_to_plot.add("divE")
@@ -3490,7 +3603,6 @@ class FieldDiagnostic(picmistandard.PICMI_FieldDiagnostic, WarpXDiagnosticBase):
         particle_fields_to_plot_names.sort()
         self.diagnostic.particle_fields_to_plot = particle_fields_to_plot_names
         self.diagnostic.particle_fields_species = self.particle_fields_species
-
         self.diagnostic.plot_raw_fields = self.plot_raw_fields
         self.diagnostic.plot_raw_fields_guards = self.plot_raw_fields_guards
         self.diagnostic.plot_finepatch = self.plot_finepatch
@@ -3633,6 +3745,9 @@ class ParticleDiagnostic(picmistandard.PICMI_ParticleDiagnostic, WarpXDiagnostic
 
     warpx_plot_filter_function: string, optional
         Analytic expression to down select the particles to in the diagnostic
+
+    warpx_verbose: int, optional
+        Verbosity level to use for printing diagnostic output information.
     """
 
     def init(self, kw):
@@ -3645,6 +3760,7 @@ class ParticleDiagnostic(picmistandard.PICMI_ParticleDiagnostic, WarpXDiagnostic
         self.uniform_stride = kw.pop("warpx_uniform_stride", None)
         self.plot_filter_function = kw.pop("warpx_plot_filter_function", None)
         self.dump_last_timestep = kw.pop("warpx_dump_last_timestep", None)
+        self.verbose = kw.pop("warpx_verbose", None)
 
         self.user_defined_kw = {}
         if self.plot_filter_function is not None:
@@ -3669,6 +3785,7 @@ class ParticleDiagnostic(picmistandard.PICMI_ParticleDiagnostic, WarpXDiagnostic
         self.diagnostic.file_min_digits = self.file_min_digits
         self.diagnostic.dump_last_timestep = self.dump_last_timestep
         self.diagnostic.intervals = self.period
+        self.diagnostic.set_or_replace_attr("verbose", self.verbose)
         self.diagnostic.set_or_replace_attr("write_species", True)
         if "fields_to_plot" not in self.diagnostic.argvattrs:
             self.diagnostic.fields_to_plot = "none"
@@ -3833,6 +3950,9 @@ class LabFrameFieldDiagnostic(
 
     warpx_upper_bound: vector of floats, optional
         Passed to <diagnostic name>.upper_bound
+
+    warpx_verbose: int, optional
+        Verbosity level to use for printing diagnostic output information.
     """
 
     def init(self, kw):
@@ -3847,6 +3967,7 @@ class LabFrameFieldDiagnostic(
         self.buffer_size = kw.pop("warpx_buffer_size", None)
         self.lower_bound = kw.pop("warpx_lower_bound", None)
         self.upper_bound = kw.pop("warpx_upper_bound", None)
+        self.verbose = kw.pop("warpx_verbose", None)
 
     def diagnostic_initialize_inputs(self):
         self.add_diagnostic()
@@ -3858,6 +3979,7 @@ class LabFrameFieldDiagnostic(
         self.diagnostic.file_min_digits = self.file_min_digits
         self.diagnostic.diag_lo = self.lower_bound
         self.diagnostic.diag_hi = self.upper_bound
+        self.diagnostic.set_or_replace_attr("verbose", self.verbose)
 
         self.diagnostic.do_back_transformed_fields = True
         self.diagnostic.dt_snapshots_lab = self.dt_snapshots
@@ -3944,6 +4066,9 @@ class LabFrameParticleDiagnostic(
 
     warpx_buffer_size: integer, optional
         Passed to <diagnostic name>.buffer_size
+
+    warpx_verbose: int, optional
+        Verbosity level to use for printing diagnostic output information.
     """
 
     def init(self, kw):
@@ -3954,6 +4079,7 @@ class LabFrameParticleDiagnostic(
         self.intervals = kw.pop("warpx_intervals", None)
         self.file_min_digits = kw.pop("warpx_file_min_digits", None)
         self.buffer_size = kw.pop("warpx_buffer_size", None)
+        self.verbose = kw.pop("warpx_verbose", None)
 
     def diagnostic_initialize_inputs(self):
         self.add_diagnostic()
@@ -3963,6 +4089,7 @@ class LabFrameParticleDiagnostic(
         self.diagnostic.openpmd_backend = self.openpmd_backend
         self.diagnostic.openpmd_encoding = self.openpmd_encoding
         self.diagnostic.file_min_digits = self.file_min_digits
+        self.diagnostic.set_or_replace_attr("verbose", self.verbose)
 
         self.diagnostic.do_back_transformed_particles = True
         self.diagnostic.dt_snapshots_lab = self.dt_snapshots
