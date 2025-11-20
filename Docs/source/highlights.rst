@@ -100,6 +100,11 @@ Laser-Plasma Interaction
 
 Scientific works in laser-ion acceleration and laser-matter interaction.
 
+#. Lei B, Zhang H, Seipt D, Bonatto A, Qiao B, Resta-López J, Xia G, and Welsch C.
+   **Coherent Synchrotron Radiation by Excitation of Surface Plasmon Polariton on Near-Critical Solid Microtube Surface**.
+   Phys. Rev. Lett. **135**, 205001, 2025.
+   `DOI:10.1103/cnym-16hc <https://doi.org/10.1103/cnym-16hc>`__
+
 #. Garten M, Bulanov S S, Hakimi S, Obst-Huebl L, Mitchell C E, Schroeder C B, Esarey E, Geddes C G R, Vay J-L, Huebl A.
    **Laser-plasma ion beam booster based on hollow-channel magnetic vortex acceleration**.
    Physical Review Research **6**, 033148, 2024.
@@ -271,6 +276,11 @@ Nuclear Fusion and Plasma Confinement
 
 Plasma Thrusters and Spacecraft Physics
 ***************************************
+
+#. Zhou Z., Luo X., Zhao Y., Yu D.
+   **Impact of azimuthal magnetic field inhomogeneity on Hall thruster high-frequency azimuthal instability via 2D radial–azimuthal PIC simulations**.
+   Plasma Sources Sci. Technol. **34**, 105006, 2025.
+   `DOI:10.1088/1361-6595/ae0af5 <https://doi.org/10.1088/1361-6595/ae0af5>`__
 
 #. Xie L., Zhou Z., Luo X., Zhao Y.
    **The influence of adding Monte Carlo collisions on convergence in 3D PIC simulations of Hall thruster azimuthal instability**.
