@@ -3,17 +3,17 @@
 Inputs: Parameter List
 ======================
 
-This documents on how to use WarpX with an inputs file (e.g., ``warpx.3d input_3d``).
+This section describes the list of parameters that can be set in the WarpX inputs file.
 
-Complete example input files can be found in :ref:`the examples section <usage-examples>`.
-
-.. note::
-
-   WarpX input options are read via AMReX `ParmParse <https://amrex-codes.github.io/amrex/docs_html/Basics.html#parmparse>`__.
+Examples of inputs files can be found in the :ref:`Examples <usage-examples>` section.
 
 .. note::
 
-   The AMReX parser (see :ref:`running-cpp-parameters-parser`) is used for the right-hand-side of all input parameters that consist of one or more integers or floats, so expressions like ``<species_name>.density_max = "2.+1."`` and/or using user-defined constants are accepted.
+   WarpX's input paramters are read via AMReX's `ParmParse <https://amrex-codes.github.io/amrex/docs_html/Basics.html#parmparse>`__.
+
+.. note::
+
+   The AMReX parser (see :ref:`running-cpp-parameters-parser`) is used for the right-hand side of all input parameters that consist of one or more integers or floats. Expressions like ``<species_name>.density_max = "0.1+2.3"`` and expressions that include user-defined constants are accepted.
 
 .. _running-cpp-parameters-overall:
 
@@ -377,7 +377,6 @@ Setting up the field mesh
     When using mesh refinement, the number of refinement levels that will be used.
 
     Use 0 in order to disable mesh refinement.
-    Note: currently, ``0`` and ``1`` are supported.
 
 * ``amr.ref_ratio`` (`integer` per refined level, default: ``2``)
     When using mesh refinement, this is the refinement ratio per level.
