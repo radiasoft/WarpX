@@ -2973,7 +2973,7 @@ class Simulation(picmistandard.PICMI_Simulation):
     warpx_field_gathering_algo: {'energy-conserving', 'momentum-conserving'}, optional
         Field gathering algorithm. The default depends on conditions.
 
-    warpx_particle_pusher_algo: {'boris', 'vay', 'higuera'}, default='boris'
+    warpx_particle_pusher_algo: {'boris', 'vay', 'higuera', 'blended'}, default='boris'
         Particle pushing algorithm.
 
     warpx_use_filter: bool, optional
