@@ -2481,6 +2481,15 @@ WarpX::AllocLevelMFs (int lev, const BoxArray& ba, const DistributionMapping& dm
         m_fields.alloc_init(FieldType::vector_potential_grad_buf_b_stag, Direction{2}, lev, amrex::convert(ba, Bz_nodal_flag), dm, ncomps, ngEB, 0.0_rt);
     }
 
+
+    //Allocate gradB multifabs needed by the blended solver algorithm
+    if (WarpX::particle_pusher_algo = ParticlePusherAlgo::Blended)
+    {
+        m_fields.alloc_init(FieldType::GradB_aux, Direction{0}, lev, amrex::convert(ba, Bx_nodal_flag), dm, ncomps, ngEB, 0.0_rt);
+        m_fields.alloc_init(FieldType::GradB_aux, Direction{1}, lev, amrex::convert(ba, By_nodal_flag), dm, ncomps, ngEB, 0.0_rt);
+        m_fields.alloc_init(FieldType::GradB_aux, Direction{2}, lev, amrex::convert(ba, Bz_nodal_flag), dm, ncomps, ngEB, 0.0_rt);
+    }
+
     // Allocate extra multifabs needed by the kinetic-fluid hybrid algorithm.
     if (WarpX::electromagnetic_solver_id == ElectromagneticSolverAlgo::HybridPIC)
     {

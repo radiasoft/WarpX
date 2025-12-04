@@ -90,7 +90,8 @@ namespace warpx::fields
         MassMatrices_PC, // Stores reduced mass matrix elements for the implicit solver preconditioner (PC)
         ECTRhofield,
         Venl,
-        global_debye_length
+        global_debye_length,
+        gradB_aux, /**< Stores the gradient of the magnetic field for use with the blended pusher. Computes from Bfield_aux for consistency. */
     );
 
     /** these are vector fields */
@@ -138,7 +139,8 @@ namespace warpx::fields
         FieldType::MassMatrices_Z,
         FieldType::MassMatrices_PC,
         FieldType::ECTRhofield,
-        FieldType::Venl
+        FieldType::Venl,
+        FieldType::GradB_aux
     };
 
     /** Returns true if a FieldType represents a vector field */

@@ -613,6 +613,9 @@ WarpX::PrintMainPICparameters ()
     else if (particle_pusher_algo == ParticlePusherAlgo::Boris){
       amrex::Print() << "Particle Pusher:      | Boris \n";
     }
+    else if (particle_pusher_algo == ParticlePusherAlgo::Blended){
+      amrex::Print() << "Particle Pusher:      | Blended \n";
+    }
     // Print type of charge deposition
     if (charge_deposition_algo == ChargeDepositionAlgo::Standard){
       amrex::Print() << "Charge Deposition:    | standard \n";
@@ -890,6 +893,14 @@ WarpX::InitData ()
         for (int lev = 0; lev <= max_level; ++lev) {
             AddExternalFields(lev);
         }
+
+        // if the Blended pusher is used, compute gradB_aux (including external fields)
+        if (particle_pusher_algo == ParticlePusherAlgo::Blended){
+            for (int lev = 0; lev <= max_level; ++lev) {
+                ComputeGradBGrid(lev);
+            }
+    }
+
     }
     else {
         ExecutePythonCallback("afterInitatRestart");
@@ -1189,6 +1200,12 @@ WarpX::PostRestart ()
     for (int lev = 0; lev <= maxLevel(); ++lev) {
         LoadExternalFields(lev);
     }
+
+    if (particle_pusher_algo == ParticlePusherAlgo::Blended) {
+        for (int lev = 0; lev <= maxLevel(); ++lev) {
+            ComputeGradBGrid(lev);
+        }
+    }
 }
 
 
@@ -1327,6 +1344,11 @@ WarpX::InitLevelData (int lev, Real /*time*/)
 
     // load external grid fields into E/Bfield_fp_external multifabs
     LoadExternalFields(lev);
+
+    // update gradB at new levels if blended pusher is used - note this should happen after the aux fields have been initialized
+    if (particle_pusher_algo == ParticlePusherAlgo::Blended) {
+        ComputeGradBGrid(lev);
+    }
 
     if (costs[lev]) {
         const auto iarr = costs[lev]->IndexArray();
@@ -1798,4 +1820,74 @@ WarpX::ReadExternalFieldFromFile (
 
     } // End loop over boxes.
 #endif
+}
+
+// Compute the gradient of the magnetic field magnitude and store it in GradB_aux
+// Used for the blended pusher
+void
+WarpX::ComputeGradBGrid (int lev)
+{
+    using ablastr::fields::Direction;
+    using warpx::fields::FieldType;
+
+    auto* Bx   = m_fields.get(FieldType::Bfield_aux,  Direction{0}, lev);
+    auto* By   = m_fields.get(FieldType::Bfield_aux,  Direction{1}, lev);
+    auto* Bz   = m_fields.get(FieldType::Bfield_aux,  Direction{2}, lev);
+
+    auto* gBx = m_fields.get(FieldType::GradB_aux,   Direction{0}, lev);
+    auto* gBy = m_fields.get(FieldType::GradB_aux,   Direction{1}, lev);
+    auto* gBz = m_fields.get(FieldType::GradB_aux,   Direction{2}, lev);
+
+    const auto dx = Geom(lev).CellSize(0);
+    const auto dy = (AMREX_SPACEDIM > 1) ? Geom(lev).CellSize(1) : 1.0_rt;
+    const auto dz = (AMREX_SPACEDIM > 2) ? Geom(lev).CellSize(2) : 1.0_rt;
+
+    for (amrex::MFIter mfi(*Bx, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const auto& box = mfi.validbox();
+
+        auto const& bx_arr  = Bx->const_array(mfi);
+        auto const& by_arr  = By->const_array(mfi);
+        auto const& bz_arr  = Bz->const_array(mfi);
+
+        auto const& dBdx_arr = dBdx->array(mfi);
+        auto const& dBdy_arr = dBdy->array(mfi);
+        auto const& dBdz_arr = dBdz->array(mfi);
+
+        amrex::ParallelFor(box,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
+
+                auto Bmag_at = [&] (int ii, int jj, int kk) -> amrex::Real {
+                    const amrex::Real Bxv = bx_arr(ii,jj,kk);
+                    const amrex::Real Byv = by_arr(ii,jj,kk);
+                    const amrex::Real Bzv = bz_arr(ii,jj,kk);
+                    return std::sqrt(Bxv*Bxv + Byv*Byv + Bzv*Bzv);
+                };
+
+                const amrex::Real gBx_loc =
+                    (Bmag_at(i+1,j,k) - Bmag_at(i-1,j,k)) / (2.0_rt*dx);
+
+    #if AMREX_SPACEDIM > 1
+                const amrex::Real gBy_loc =
+                    (Bmag_at(i,j+1,k) - Bmag_at(i,j-1,k)) / (2.0_rt*dy);
+    #else
+                const amrex::Real gBy_loc = 0.0_rt;
+    #endif
+
+    #if AMREX_SPACEDIM > 2
+                const amrex::Real gBz_loc =
+                    (Bmag_at(i,j,k+1) - Bmag_at(i,j,k-1)) / (2.0_rt*dz);
+    #else
+                const amrex::Real gBz_loc = 0.0_rt;
+    #endif
+
+                gBx_arr(i,j,k) = gBx_loc;
+                gBy_arr(i,j,k) = gBy_loc;
+                gBz_arr(i,j,k) = gBz_loc;
+            }
+        );
+    }
+
+    gBx->FillBoundary(Geom(lev).periodicity());
+    gBy->FillBoundary(Geom(lev).periodicity());
+    gBz->FillBoundary(Geom(lev).periodicity());
 }
