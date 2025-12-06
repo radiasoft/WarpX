@@ -26,11 +26,13 @@
 #include "Particles/Pusher/CopyParticleAttribs.H"
 #include "Particles/Pusher/GetAndSetPosition.H"
 #include "Particles/Pusher/PushSelector.H"
+#include "Particles/Pusher/UpdateMomentumBlended.H"
 #include "Particles/Pusher/UpdateMomentumBoris.H"
 #include "Particles/Pusher/UpdateMomentumBorisWithRadiationReaction.H"
 #include "Particles/Pusher/UpdateMomentumHigueraCary.H"
 #include "Particles/Pusher/UpdateMomentumVay.H"
 #include "Particles/Pusher/UpdatePosition.H"
+#include "Particles/Pusher/UpdatePositionBlended.H"
 #include "Particles/SpeciesPhysicalProperties.H"
 #include "Particles/WarpXParticleContainer.H"
 #include "Utils/Parser/ParserUtils.H"
@@ -1198,6 +1200,13 @@ PhysicalParticleContainer::PushP (int lev, Real dt,
                 amrex::ParticleReal Byp = By_external_particle;
                 amrex::ParticleReal Bzp = Bz_external_particle;
 
+                amrex::ParticleReal gradBx = 0._prt;
+                amrex::ParticleReal gradBy = 0._prt;
+                amrex::ParticleReal gradBz = 0._prt;
+                amrex::ParticleReal kappax = 0._prt;
+                amrex::ParticleReal kappay = 0._prt;
+                amrex::ParticleReal kappaz = 0._prt;
+
                 if (!t_do_not_gather){
                     // first gather E and B to the particle positions
                     doGatherShapeN(xp, yp, zp, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
@@ -1210,7 +1219,9 @@ PhysicalParticleContainer::PushP (int lev, Real dt,
                 // Externally applied E and B-field in Cartesian co-ordinates
                 [[maybe_unused]] const auto& getExternalEB_tmp = getExternalEB;
                 if constexpr (exteb_control == has_exteb) {
-                    getExternalEB(ip, Exp, Eyp, Ezp, Bxp, Byp, Bzp);
+                    getExternalEB(ip, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
+                                  gradBx, gradBy, gradBz,
+                                  kappax, kappay, kappaz);
                 }
 
                 if (do_crr) {
@@ -1427,6 +1438,13 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
         amrex::ParticleReal Byp = By_external_particle;
         amrex::ParticleReal Bzp = Bz_external_particle;
 
+        amrex::ParticleReal gradBx = 0._prt;
+        amrex::ParticleReal gradBy = 0._prt;
+        amrex::ParticleReal gradBz = 0._prt;
+        amrex::ParticleReal kappax = 0._prt;
+        amrex::ParticleReal kappay = 0._prt;
+        amrex::ParticleReal kappaz = 0._prt;
+
         if (gather_fields) {
             // first gather E and B to the particle positions
             doGatherShapeN(xp, yp, zp, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
@@ -1438,7 +1456,8 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
 
         [[maybe_unused]] const auto& getExternalEB_tmp = getExternalEB;
         if constexpr (exteb_control == has_exteb) {
-            getExternalEB(ip, Exp, Eyp, Ezp, Bxp, Byp, Bzp);
+            getExternalEB(ip, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
+                          gradBx, gradBy, gradBz, kappax, kappay, kappaz);
         }
 
         scaleFields(xp, yp, zp, Exp, Eyp, Ezp, Bxp, Byp, Bzp);
@@ -1472,6 +1491,7 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
         if (momentum_push_type != MomentumPushType::None) {
             doParticleMomentumPush<0>(ux[ip], uy[ip], uz[ip],
                                       Exp, Eyp, Ezp, Bxp, Byp, Bzp,
+                                      gradBx, gradBy, gradBz,
                                       ion_lev ? ion_lev[ip] : 1,
                                       mass, q, pusher_algo, do_crr,
                                       dt);
@@ -1482,7 +1502,16 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
         if (position_push_type == PositionPushType::FirstHalf || position_push_type == PositionPushType::SecondHalf) {
             position_dt *= 0.5_rt;
         }
-        UpdatePosition(xp, yp, zp, ux[ip], uy[ip], uz[ip], position_dt, mass);
+        
+        if (pusher_algo == ParticlePusherAlgo::Blended) {
+            UpdatePositionBlended(xp, yp, zp, ux[ip], uy[ip], uz[ip],
+                              Exp, Eyp, Ezp, Bxp, Byp, Bzp,
+                              gradBx, gradBy, gradBz,
+                              kappax, kappay, kappaz,
+                              position_dt, mass);
+        } else {
+            UpdatePosition(xp, yp, zp, ux[ip], uy[ip], uz[ip], position_dt, mass);
+        }
         setPosition(ip, xp, yp, zp);
 
 #ifdef WARPX_QED
