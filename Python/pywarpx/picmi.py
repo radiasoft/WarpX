@@ -2562,6 +2562,72 @@ class AnalyticAppliedField(picmistandard.PICMI_AnalyticAppliedField):
                 )
 
 
+class AnalyticGradBAppliedField(picmistandard.PICMI_AnalyticAppliedField):
+    def init(self, kw):
+        # Reuse the same constant-mangling machinery
+        self.mangle_dict = None
+
+    def applied_field_initialize_inputs(self):
+        # lower/upper_bound not used by WarpX
+
+        if self.mangle_dict is None:
+            self.mangle_dict = pywarpx.my_constants.add_keywords(self.user_defined_kw)
+
+        # If any gradB component is set, enable the parser mode
+        if (self.Bx_expression is not None
+            or self.By_expression is not None
+            or self.Bz_expression is not None):
+
+            # This string MUST match what you used in MultiParticleContainer
+            pywarpx.particles.gradB_ext_particle_init_style = (
+                "parse_gradb_ext_particle_function"
+            )
+
+            for sdir, expression in zip(
+                ["x", "y", "z"],
+                [self.Bx_expression, self.By_expression, self.Bz_expression],
+            ):
+                if expression is None:
+                    continue
+                expression = pywarpx.my_constants.mangle_expression(
+                    expression, self.mangle_dict
+                )
+                # Name here must match your C++ Store_parserString key, e.g.
+                # "gradBx_external_particle_function(x,y,z,t)" or similar.
+                pywarpx.particles.__setattr__(
+                    f"gradB{sdir}_external_particle_function(x,y,z,t)", expression
+                )
+
+class AnalyticKappaAppliedField(picmistandard.PICMI_AnalyticAppliedField):
+    def init(self, kw):
+        self.mangle_dict = None
+
+    def applied_field_initialize_inputs(self):
+        if self.mangle_dict is None:
+            self.mangle_dict = pywarpx.my_constants.add_keywords(self.user_defined_kw)
+
+        # For kappa, you might choose to name the PICMI-side components x,y,z
+        if (self.Bx_expression is not None
+            or self.By_expression is not None
+            or self.Bz_expression is not None):
+
+            pywarpx.particles.kappa_ext_particle_init_style = (
+                "parse_kappa_ext_particle_function"
+            )
+
+            for comp, expression in zip(
+                ["x", "y", "z"],
+                [self.Bx_expression, self.By_expression, self.Bz_expression],
+            ):
+                if expression is None:
+                    continue
+                expression = pywarpx.my_constants.mangle_expression(
+                    expression, self.mangle_dict
+                )
+                pywarpx.particles.__setattr__(
+                    f"kappa{comp}_external_particle_function(x,y,z,t)", expression
+                )
+
 class Mirror(picmistandard.PICMI_Mirror):
     def applied_field_initialize_inputs(self):
         try:
