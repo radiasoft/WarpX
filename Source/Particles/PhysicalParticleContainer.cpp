@@ -1508,7 +1508,7 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
                               Exp, Eyp, Ezp, Bxp, Byp, Bzp,
                               gradBx, gradBy, gradBz,
                               kappax, kappay, kappaz,
-                              position_dt, mass);
+                              position_dt, mass, q);
         } else {
             UpdatePosition(xp, yp, zp, ux[ip], uy[ip], uz[ip], position_dt, mass);
         }

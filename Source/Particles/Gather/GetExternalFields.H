@@ -22,8 +22,8 @@
 struct GetExternalEBField
 {
     enum ExternalFieldInitType { None, Parser, RepeatedPlasmaLens, Unknown };
-    enum ExternalGradBInitType { None, Parser, FromGrid, Unknown }; // Used for blended pusher
-    enum ExternalKappaInitType { None, Parser, FromGrid, Unknown }; // Used for curvature drift in blended pusher
+    enum class ExternalGradBInitType { None, Parser, FromGrid, Unknown }; // Used for blended pusher
+    enum class ExternalKappaInitType { None, Parser, FromGrid, Unknown }; // Used for curvature drift in blended pusher
 
     GetExternalEBField () = default;
 
