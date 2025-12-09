@@ -180,7 +180,7 @@ public:
     static inline auto charge_deposition_algo = ChargeDepositionAlgo::Default;
     //! Integer that corresponds to the field gathering algorithm (energy-conserving, momentum-conserving)
     static inline auto field_gathering_algo = GatheringAlgo::Default;
-    //! Integer that corresponds to the particle push algorithm (Boris, Vay, Higuera-Cary)
+    //! Integer that corresponds to the particle push algorithm (Boris, Vay, Higuera-Cary, Blended)
     static inline auto particle_pusher_algo = ParticlePusherAlgo::Default;
     //! Integer that corresponds to the type of Maxwell solver (Yee, CKC, PSATD, ECT)
     static inline auto electromagnetic_solver_id = ElectromagneticSolverAlgo::Default;
