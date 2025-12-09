@@ -332,7 +332,14 @@ void ParticleExtrema::ComputeDiags (int step)
                         amrex::ParticleReal by = By_external_particle;
                         amrex::ParticleReal bz = Bz_external_particle;
 
-                        getExternalEB(i, ex, ey, ez, bx, by, bz);
+                        // getExternalEB(i, ex, ey, ez, bx, by, bz);
+
+                        // NEW: extra outputs for blended pusher
+                        [[maybe_unused]] amrex::ParticleReal gradBx = 0._prt, gradBy = 0._prt, gradBz = 0._prt;
+                        [[maybe_unused]] amrex::ParticleReal kappax = 0._prt, kappay = 0._prt, kappaz = 0._prt;
+
+                        getExternalEB(i, ex, ey, ez, bx, by, bz,
+                            gradBx, gradBy, gradBz, kappax, kappay, kappaz);
 
                         // gather E and B
                         doGatherShapeN(xp, yp, zp,

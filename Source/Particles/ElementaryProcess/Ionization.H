@@ -112,7 +112,13 @@ struct IonizationFilterFunc
             amrex::ParticleReal bx = m_Bx_external_particle;
             amrex::ParticleReal by = m_By_external_particle;
             amrex::ParticleReal bz = m_Bz_external_particle;
-            m_get_externalEB(i, ex, ey, ez, bx, by, bz);
+            
+            // NEW: extra outputs for blended pusher, unused by ionization
+            [[maybe_unused]] amrex::ParticleReal gradBx = 0._prt, gradBy = 0._prt, gradBz = 0._prt;
+            [[maybe_unused]] amrex::ParticleReal kappax = 0._prt, kappay = 0._prt, kappaz = 0._prt;
+
+            m_get_externalEB(i, ex, ey, ez, bx, by, bz,
+                             gradBx, gradBy, gradBz, kappax, kappay, kappaz);
 
             doGatherShapeN(xp, yp, zp, ex, ey, ez, bx, by, bz,
                            m_ex_arr, m_ey_arr, m_ez_arr, m_bx_arr, m_by_arr, m_bz_arr,
