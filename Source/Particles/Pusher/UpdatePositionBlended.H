@@ -91,16 +91,16 @@ void UpdatePositionBlended ( amrex::ParticleReal& x, amrex::ParticleReal& y, amr
         const amrex::ParticleReal uperp_z = uz - upar_z;
 
         //compute magnetic moment
-        const amrex::ParticleReal mu = m*inv_gamma*(uperp_x*uperp_x + uperp_y*uperp_y + uperp_z*uperp_z) *0.5_prt*invB;
+        const amrex::ParticleReal mu = m*(uperp_x*uperp_x + uperp_y*uperp_y + uperp_z*uperp_z) *0.5_prt*invB;
 
         // E×B drift: v_E = (c E × B) / B^2
         const amrex::ParticleReal ExB_x = Ey*Bz - Ez*By;
         const amrex::ParticleReal ExB_y = Ez*Bx - Ex*Bz;
         const amrex::ParticleReal ExB_z = Ex*By - Ey*Bx;
 
-        const amrex::ParticleReal vE_x =  PhysConst::c * ExB_x * invB * invB;
-        const amrex::ParticleReal vE_y =  PhysConst::c * ExB_y * invB * invB;
-        const amrex::ParticleReal vE_z =  PhysConst::c * ExB_z * invB * invB;
+        const amrex::ParticleReal vE_x =  ExB_x * invB * invB;
+        const amrex::ParticleReal vE_y =  ExB_y * invB * invB;
+        const amrex::ParticleReal vE_z =  ExB_z * invB * invB;
 
         // Grad-B drift: v_gradB = (mu / (q B)) (B × ∇B) / B^2
         const amrex::ParticleReal bXgradB_x = By*gradBz - Bz*gradBy;
