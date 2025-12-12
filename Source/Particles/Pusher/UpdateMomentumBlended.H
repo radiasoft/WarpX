@@ -63,7 +63,7 @@ void UpdateMomentumBlended(
     const amrex::ParticleReal uperp_y = uy - upar_y;
     const amrex::ParticleReal uperp_z = uz - upar_z;
 
-    const amrex::ParticleReal mu = m*inv_gamma*(uperp_x*uperp_x + uperp_y*uperp_y + uperp_z*uperp_z) *0.5_prt*invB;
+    const amrex::ParticleReal mu = m*(uperp_x*uperp_x + uperp_y*uperp_y + uperp_z*uperp_z) *0.5_prt*invB;
 
     // Magnetic rotation
     // - Compute temporary variables
@@ -87,13 +87,17 @@ void UpdateMomentumBlended(
     uz += econst*Ez;
 
     // Mirror force correction to momentum
-    const amrex::ParticleReal dux = -1._prt*(mu/m) * (bx*gradBx) * dt;
-    const amrex::ParticleReal duy = -1._prt*(mu/m) * (by*gradBy) * dt;
-    const amrex::ParticleReal duz = -1._prt*(mu/m) * (bz*gradBz) * dt;
+    const amrex::ParticleReal bdotGradB = bx*gradBx + by*gradBy + bz*gradBz;
+    const amrex::ParticleReal coeff = -1._prt*(mu/m) * bdotGradB * dt;
 
-    ux -= 0.5_prt*(1._prt - alpha)*dux;
-    uy -= 0.5_prt*(1._prt - alpha)*duy;
-    uz -= 0.5_prt*(1._prt - alpha)*duz;
+
+    const amrex::ParticleReal dux = bx*coeff;
+    const amrex::ParticleReal duy = by*coeff;
+    const amrex::ParticleReal duz = bz*coeff;
+
+    ux += 0.5_prt*(1._prt - alpha)*dux;
+    uy += 0.5_prt*(1._prt - alpha)*duy;
+    uz += 0.5_prt*(1._prt - alpha)*duz;
 
 }
 
