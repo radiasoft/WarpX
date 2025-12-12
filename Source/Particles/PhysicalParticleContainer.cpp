@@ -1248,6 +1248,13 @@ PhysicalParticleContainer::PushP (int lev, Real dt,
                     UpdateMomentumHigueraCary( ux[ip], uy[ip], uz[ip],
                                                Exp, Eyp, Ezp, Bxp,
                                                Byp, Bzp, qp, mass, dt);
+                } else if (pusher_algo == ParticlePusherAlgo::Blended) {
+                    amrex::ParticleReal qp = q;
+                    if (ion_lev){ qp *= ion_lev[ip]; }
+                    UpdateMomentumBlended( ux[ip], uy[ip], uz[ip],
+                                               Exp, Eyp, Ezp, Bxp,
+                                               Byp, Bzp, qp, mass, dt,
+                                               gradBx, gradBy, gradBz);
                 } else {
                     amrex::Abort("Unknown particle pusher");
                 }
