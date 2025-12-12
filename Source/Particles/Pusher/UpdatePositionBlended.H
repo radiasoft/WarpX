@@ -13,7 +13,6 @@
 #include <AMReX.H>
 //#include <AMReX_FArrayBox.H>
 #include <AMReX_REAL.H>
-#include "Particles/Pusher/ComputeBlendedAlpha.H"
 
 
 /** \brief Push the particle position over one time step,
@@ -30,13 +29,14 @@ void UpdatePositionBlended ( amrex::ParticleReal& x, amrex::ParticleReal& y, amr
                      const amrex::ParticleReal gradBx, const amrex::ParticleReal gradBy, const amrex::ParticleReal gradBz,
                      const amrex::ParticleReal kappax, const amrex::ParticleReal kappay, const amrex::ParticleReal kappaz,
                      const amrex::Real dt,
-                     amrex::ParticleReal const m, const amrex::ParticleReal q)
+                     amrex::ParticleReal const m, const amrex::ParticleReal q,
+                     const amrex::ParticleReal alpha_gc, const amrex::ParticleReal mu_gc)
 
 {
     using namespace amrex::literals;
 
     // Compute blending coefficient alpha
-    const amrex::ParticleReal alpha = ComputeBlendedAlpha(Bx, By, Bz, q, m, dt);
+    // const amrex::ParticleReal alpha = ComputeBlendedAlpha(Bx, By, Bz, q, m, dt);
 
     amrex::ParticleReal const u2 = ux*ux + uy*uy + uz*uz;
 
@@ -91,7 +91,7 @@ void UpdatePositionBlended ( amrex::ParticleReal& x, amrex::ParticleReal& y, amr
         const amrex::ParticleReal uperp_z = uz - upar_z;
 
         //compute magnetic moment
-        const amrex::ParticleReal mu = m*(uperp_x*uperp_x + uperp_y*uperp_y + uperp_z*uperp_z) *0.5_prt*invB;
+        // const amrex::ParticleReal mu = m*(uperp_x*uperp_x + uperp_y*uperp_y + uperp_z*uperp_z) *0.5_prt*invB;
 
         // E×B drift: v_E = (c E × B) / B^2
         const amrex::ParticleReal ExB_x = Ey*Bz - Ez*By;
@@ -107,9 +107,9 @@ void UpdatePositionBlended ( amrex::ParticleReal& x, amrex::ParticleReal& y, amr
         const amrex::ParticleReal bXgradB_y = Bz*gradBx - Bx*gradBz;
         const amrex::ParticleReal bXgradB_z = Bx*gradBy - By*gradBx;
 
-        const amrex::ParticleReal vgradB_x = (mu * invB * invB / q) * bXgradB_x;
-        const amrex::ParticleReal vgradB_y = (mu * invB * invB / q) * bXgradB_y;
-        const amrex::ParticleReal vgradB_z = (mu * invB * invB / q) * bXgradB_z;
+        const amrex::ParticleReal vgradB_x = (mu_gc * invB * invB / q) * bXgradB_x;
+        const amrex::ParticleReal vgradB_y = (mu_gc * invB * invB / q) * bXgradB_y;
+        const amrex::ParticleReal vgradB_z = (mu_gc * invB * invB / q) * bXgradB_z;
 
 
         // Curvature drift: v_c = (γ^2 v_par^2)/((q/m) * Bmag) * (b × kappa)
@@ -135,19 +135,19 @@ void UpdatePositionBlended ( amrex::ParticleReal& x, amrex::ParticleReal& y, amr
         // Blended update blends perpendicular and drift motion via alpha
 #if !defined(WARPX_DIM_1D_Z)
             x += upar_x * inv_gamma * dt 
-            + alpha * uperp_x * inv_gamma * dt 
-            + (1._prt - alpha) * vx_drift * dt;
+            + alpha_gc * uperp_x * inv_gamma * dt 
+            + (1._prt - alpha_gc) * vx_drift * dt;
 #endif
 #if defined(WARPX_DIM_3D) || defined(WARPX_DIM_RZ) || defined(WARPX_DIM_RCYLINDER) || defined(WARPX_DIM_RSPHERE)
             // Particles pushed in 3D even in 1D cylindrical, 1D spherical, and 2D cylindrical geometry
             y += upar_y * inv_gamma * dt 
-            + alpha * uperp_y * inv_gamma * dt 
-            + (1._prt - alpha) * vy_drift * dt;
+            + alpha_gc * uperp_y * inv_gamma * dt 
+            + (1._prt - alpha_gc) * vy_drift * dt;
 #endif
 #if !defined(WARPX_DIM_RCYLINDER)
             z += upar_z * inv_gamma * dt 
-            + alpha * uperp_z * inv_gamma * dt 
-            + (1._prt - alpha) * vz_drift * dt;
+            + alpha_gc * uperp_z * inv_gamma * dt 
+            + (1._prt - alpha_gc) * vz_drift * dt;
 #endif
     }
     // massless particles (photons)

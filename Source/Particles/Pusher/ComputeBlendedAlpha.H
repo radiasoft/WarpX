@@ -17,7 +17,8 @@
  *         Blended particle pusher given the values of
  *         magntic field at the particle location `Bx`, `By`, `Bz` */
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-amrex::ParticleReal ComputeBlendedAlpha(
+void ComputeBlendedAlpha(
+    amrex::ParticleReal& alpha_gc,
     const amrex::ParticleReal Bx, const amrex::ParticleReal By, const amrex::ParticleReal Bz,
     const amrex::ParticleReal q, const amrex::ParticleReal m, const amrex::Real dt )
 {
@@ -25,9 +26,8 @@ amrex::ParticleReal ComputeBlendedAlpha(
     const amrex::ParticleReal Bmag = std::sqrt(B2);
     const amrex::ParticleReal omega_c = std::abs(q)*Bmag/m;
 
-    const amrex::ParticleReal alpha = 1._prt/std::sqrt(1._prt + (0.5_prt*omega_c*dt)*(0.5_prt*omega_c*dt));
+    alpha_gc = 1._prt/std::sqrt(1._prt + (0.5_prt*omega_c*dt)*(0.5_prt*omega_c*dt));
 
-    return alpha;
 }
 
 #endif

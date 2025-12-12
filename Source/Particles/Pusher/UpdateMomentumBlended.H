@@ -10,11 +10,11 @@
 
 #include <AMReX_REAL.H>
 #include "Utils/WarpXConst.H"
-#include "Particles/Pusher/ComputeBlendedAlpha.H"
 
 /** \brief Update the particle's momentum over a timestep,
  *    given the value of its momenta `ux`, `uy`, `uz` 
- *    fields Ex, Ey, Ez, Bx, By, Bz, and gradients gradBx, gradBy, gradBz */
+ *    fields Ex, Ey, Ez, Bx, By, Bz, gradients gradBx, gradBy, gradBz 
+ *    and pre-computed alpha/mu */
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void UpdateMomentumBlended(
@@ -22,7 +22,8 @@ void UpdateMomentumBlended(
     const amrex::ParticleReal Ex, const amrex::ParticleReal Ey, const amrex::ParticleReal Ez,
     const amrex::ParticleReal Bx, const amrex::ParticleReal By, const amrex::ParticleReal Bz,
     const amrex::ParticleReal q, const amrex::ParticleReal m, const amrex::Real dt,
-    const amrex::ParticleReal gradBx, const amrex::ParticleReal gradBy, const amrex::ParticleReal gradBz)
+    const amrex::ParticleReal gradBx, const amrex::ParticleReal gradBy, const amrex::ParticleReal gradBz
+    const amrex::ParticleReal alpha_gc, const amrex::ParticleReal mu_gc)
 {
     using namespace amrex::literals;
 
@@ -35,7 +36,7 @@ void UpdateMomentumBlended(
 
     // Prepare for magnetic rotation
     // Compute blending coefficient alpha
-    const amrex::ParticleReal alpha = ComputeBlendedAlpha(Bx, By, Bz, q, m, dt);
+    // const amrex::ParticleReal alpha = ComputeBlendedAlpha(Bx, By, Bz, q, m, dt);
 
     // Compute temporary gamma factor
     constexpr amrex::ParticleReal inv_c2 = 1._prt/(PhysConst::c*PhysConst::c);
@@ -63,8 +64,6 @@ void UpdateMomentumBlended(
     const amrex::ParticleReal uperp_y = uy - upar_y;
     const amrex::ParticleReal uperp_z = uz - upar_z;
 
-    const amrex::ParticleReal mu = m*(uperp_x*uperp_x + uperp_y*uperp_y + uperp_z*uperp_z) *0.5_prt*invB;
-
     // Magnetic rotation
     // - Compute temporary variables
     const amrex::ParticleReal tx = econst*inv_gamma*Bx;
@@ -88,16 +87,16 @@ void UpdateMomentumBlended(
 
     // Mirror force correction to momentum
     const amrex::ParticleReal bdotGradB = bx*gradBx + by*gradBy + bz*gradBz;
-    const amrex::ParticleReal coeff = -1._prt*(mu/m) * bdotGradB * dt;
+    const amrex::ParticleReal coeff = -1._prt*(mu_gc/m) * bdotGradB * dt;
 
 
     const amrex::ParticleReal dux = bx*coeff;
     const amrex::ParticleReal duy = by*coeff;
     const amrex::ParticleReal duz = bz*coeff;
 
-    ux += 0.5_prt*(1._prt - alpha)*dux;
-    uy += 0.5_prt*(1._prt - alpha)*duy;
-    uz += 0.5_prt*(1._prt - alpha)*duz;
+    ux += 0.5_prt*(1._prt - alpha_gc)*dux;
+    uy += 0.5_prt*(1._prt - alpha_gc)*duy;
+    uz += 0.5_prt*(1._prt - alpha_gc)*duz;
 
 }
 

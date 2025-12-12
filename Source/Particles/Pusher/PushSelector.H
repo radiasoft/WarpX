@@ -56,6 +56,8 @@ void doParticleMomentumPush(amrex::ParticleReal& ux,
                             const amrex::ParticleReal a_q,
                             const ParticlePusherAlgo pusher_algo,
                             const int do_crr,
+                            const amrex::ParticleReal alpha_gc,
+                            const amrex::ParticleReal mu_gc,
 #ifdef WARPX_QED
                             const amrex::Real t_chi_max,
 #endif
@@ -63,6 +65,12 @@ void doParticleMomentumPush(amrex::ParticleReal& ux,
 {
     amrex::ParticleReal qp = a_q;
     qp *= ion_lev;
+
+    // Blended pusher not supported with QED / radiation reaction
+    if (do_crr && pusher_algo == ParticlePusherAlgo::Blended) {
+        amrex::Abort("Blended particle pusher is not supported with QED / "
+                     "radiation reaction (do_crr=1).");
+    }
 
     if (do_crr) {
 #ifdef WARPX_QED
@@ -105,7 +113,8 @@ void doParticleMomentumPush(amrex::ParticleReal& ux,
         UpdateMomentumBlended( ux, uy, uz,
                                    Ex, Ey, Ez, Bx,
                                    By, Bz, qp, m, dt,
-                                   gradBx, gradBy, gradBz);
+                                   gradBx, gradBy, gradBz,
+                                   alpha_gc, mu_gc);
     }     
     //else {
 //        amrex::Abort("Unknown particle pusher");
@@ -115,7 +124,7 @@ void doParticleMomentumPush(amrex::ParticleReal& ux,
 
 
 // --------------------------------------------------------------------
-// Preserve the old interface with a wrapper that sets gradBx=gradBy=gradBz=0
+// Preserve the old interface with a wrapper that sets gradBx=gradBy=gradBz=0, alpha_gc=1, mu_gc=0
 // --------------------------------------------------------------------
 template <int do_sync>
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE
@@ -140,6 +149,7 @@ void doParticleMomentumPush(
     const amrex::Real dt)
 {
     // Forward with dBdx=dBdy=dBdz=0
+    // and with alpha_gc=1 and mu_gc=0
     doParticleMomentumPush<do_sync>(
         ux, uy, uz,
         Ex, Ey, Ez,
@@ -150,6 +160,7 @@ void doParticleMomentumPush(
         a_q,
         pusher_algo,
         do_crr,
+        1._prt, 0._prt,
 #ifdef WARPX_QED
         t_chi_max,
 #endif
