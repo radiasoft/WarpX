@@ -17,6 +17,7 @@
 #include "Pusher/UpdateMomentumBorisWithRadiationReaction.H"
 #include "Pusher/UpdateMomentumHigueraCary.H"
 #include "Pusher/UpdateMomentumVay.H"
+#include "Particles/Pusher/UpdateMomentumBlended.H"
 #include "RigidInjectedParticleContainer.H"
 #include "Utils/Parser/ParserUtils.H"
 #include "Utils/WarpXAlgorithmSelection.H"
@@ -429,13 +430,13 @@ RigidInjectedParticleContainer::PushP (int lev, Real dt,
                                dinv, xyzmin, lo, n_rz_azimuthal_modes,
                                nox, galerkin_interpolation);
 
+                // NEW: extra outputs for blended pusher
+                [[maybe_unused]] amrex::ParticleReal gradBx = 0._prt, gradBy = 0._prt, gradBz = 0._prt;
+                [[maybe_unused]] amrex::ParticleReal kappax = 0._prt, kappay = 0._prt, kappaz = 0._prt;
+
                 [[maybe_unused]] const auto& getExternalEB_tmp = getExternalEB;
                 if constexpr (exteb_control == has_exteb) {
                     // getExternalEB(ip, Exp, Eyp, Ezp, Bxp, Byp, Bzp);
-
-                    // NEW: extra outputs for blended pusher
-                    [[maybe_unused]] amrex::ParticleReal gradBx = 0._prt, gradBy = 0._prt, gradBz = 0._prt;
-                    [[maybe_unused]] amrex::ParticleReal kappax = 0._prt, kappay = 0._prt, kappaz = 0._prt;
 
                     getExternalEB(ip, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
                         gradBx, gradBy, gradBz, kappax, kappay, kappaz);
@@ -461,6 +462,11 @@ RigidInjectedParticleContainer::PushP (int lev, Real dt,
                     UpdateMomentumHigueraCary( uxpp[ip], uypp[ip], uzpp[ip],
                                                Exp, Eyp, Ezp, Bxp,
                                                Byp, Bzp, qp, mass, dt);
+                } else if (pusher_algo == ParticlePusherAlgo::Blended) {
+                    UpdateMomentumBlended( uxpp[ip], uypp[ip], uzpp[ip],
+                                               Exp, Eyp, Ezp, Bxp,
+                                               Byp, Bzp, qp, mass, dt,
+                                               gradBx, gradBy, gradBz);
                 } else {
                     amrex::Abort("Unknown particle pusher");
                 }
