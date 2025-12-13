@@ -330,8 +330,10 @@ PhysicalParticleContainer::PhysicalParticleContainer (AmrCore* amr_core, int isp
     }
 
     // Blended solver requires mu and alpha components
-    AddRealComp("mu_gc");
-    AddRealComp("alpha_gc");
+    if (WarpX::particle_pusher_algo == ParticlePusherAlgo::Blended) {
+        m_mu_gc_comp    = AddRealComp("mu_gc");
+        m_alpha_gc_comp = AddRealComp("alpha_gc");
+    }
 
     // Read reflection models for absorbing boundaries; defaults to a zero
     pp_species_name.query("reflection_model_xlo(E)", m_boundary_conditions.reflection_model_xlo_str);
@@ -1174,12 +1176,19 @@ PhysicalParticleContainer::PushP (int lev, Real dt,
             ParticleReal* const AMREX_RESTRICT uy = attribs[PIdx::uy].dataPtr();
             ParticleReal* const AMREX_RESTRICT uz = attribs[PIdx::uz].dataPtr();
 
-            //grab alpha and mu for blended pusher
-            int const mu_gc_comp    = GetRealCompIndex("mu_gc");
-            int const alpha_gc_comp = GetRealCompIndex("alpha_gc");
+            // Allocate these pointers if we’re using the blended pusher
+            ParticleReal* AMREX_RESTRICT mu_gc    = nullptr;
+            ParticleReal* AMREX_RESTRICT alpha_gc = nullptr;
 
-            ParticleReal* const AMREX_RESTRICT alpha_gc = attribs[alpha_gc_comp].dataPtr();
-            ParticleReal* const AMREX_RESTRICT mu_gc = attribs[mu_gc_comp].dataPtr();
+            if (WarpX::particle_pusher_algo == ParticlePusherAlgo::Blended) {
+                // Sanity: we MUST have added these components in the constructor
+                WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                    m_mu_gc_comp >= 0 && m_alpha_gc_comp >= 0,
+                    "mu_gc / alpha_gc components not initialized for Blended pusher");
+
+                mu_gc    = attribs[m_mu_gc_comp].dataPtr();
+                alpha_gc = attribs[m_alpha_gc_comp].dataPtr();
+            }
 
             int* AMREX_RESTRICT ion_lev = nullptr;
             if (do_field_ionization) {
@@ -1237,6 +1246,10 @@ PhysicalParticleContainer::PushP (int lev, Real dt,
                                   kappax, kappay, kappaz);
                 }
 
+                // --- blended-specific alpha/mu ---
+                ParticleReal alpha_loc = 1._prt;
+                ParticleReal mu_loc    = 0._prt;
+
                 if (do_crr) {
                     amrex::ParticleReal qp = q;
                     if (ion_lev) { qp *= ion_lev[ip]; }
@@ -1272,11 +1285,14 @@ PhysicalParticleContainer::PushP (int lev, Real dt,
                     ComputeBlendedAlpha( alpha_gc[ip], Bxp, Byp, Bzp,
                                          qp, mass, dt);
 
+                    alpha_loc = alpha_gc[ip];
+                    mu_loc    = mu_gc[ip];
+
                     UpdateMomentumBlended( ux[ip], uy[ip], uz[ip],
                                                Exp, Eyp, Ezp, Bxp,
                                                Byp, Bzp, qp, mass, dt,
                                                gradBx, gradBy, gradBz,
-                                               alpha_gc[ip], mu_gc[ip]);
+                                               alpha_loc, mu_loc);
                 } else {
                     amrex::Abort("Unknown particle pusher");
                 }
@@ -1378,12 +1394,20 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
     ParticleReal* const AMREX_RESTRICT uy = attribs[PIdx::uy].dataPtr() + offset;
     ParticleReal* const AMREX_RESTRICT uz = attribs[PIdx::uz].dataPtr() + offset;
 
-    //grab alpha and mu for blended pusher
-    int const mu_gc_comp    = GetRealCompIndex("mu_gc");
-    int const alpha_gc_comp = GetRealCompIndex("alpha_gc");
 
-    ParticleReal* const AMREX_RESTRICT alpha_gc = attribs[alpha_gc_comp].dataPtr() + offset;
-    ParticleReal* const AMREX_RESTRICT mu_gc = attribs[mu_gc_comp].dataPtr() + offset;
+    // Allocate these pointers if we’re using the blended pusher
+    ParticleReal* AMREX_RESTRICT mu_gc    = nullptr;
+    ParticleReal* AMREX_RESTRICT alpha_gc = nullptr;
+
+    if (WarpX::particle_pusher_algo == ParticlePusherAlgo::Blended) {
+        // Sanity: we MUST have added these components in the constructor
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            m_mu_gc_comp >= 0 && m_alpha_gc_comp >= 0,
+            "mu_gc / alpha_gc components not initialized for Blended pusher");
+
+        mu_gc    = attribs[m_mu_gc_comp].dataPtr() + offset;
+        alpha_gc = attribs[m_alpha_gc_comp].dataPtr() + offset;
+    }
 
     CopyParticleAttribs copyAttribs;
     if (copy_particle_attribs) {
@@ -1503,6 +1527,10 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
             copyAttribs(ip);
         }
 
+        // --- blended-specific alpha/mu ---
+        ParticleReal alpha_loc = 1._prt;
+        ParticleReal mu_loc    = 0._prt;
+
         if (pusher_algo == ParticlePusherAlgo::Blended) {
             amrex::ParticleReal qp = q;
             if (ion_lev) { qp *= ion_lev[ip]; }
@@ -1512,7 +1540,10 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
                                 ux[ip], uy[ip], uz[ip], mass);
 
             ComputeBlendedAlpha( alpha_gc[ip], Bxp, Byp, Bzp,
-                                    qp, mass, dt);
+                                 qp, mass, dt);
+
+            alpha_loc = alpha_gc[ip];
+            mu_loc    = mu_gc[ip];
         }
 
 #ifdef WARPX_QED
@@ -1542,7 +1573,7 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
                                       gradBx, gradBy, gradBz,
                                       ion_lev ? ion_lev[ip] : 1,
                                       mass, q, pusher_algo, do_crr,
-                                      alpha_gc[ip],mu_gc[ip],
+                                      alpha_loc,mu_loc,
                                       dt);
         }
 #endif
@@ -1557,7 +1588,7 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
                               Exp, Eyp, Ezp, Bxp, Byp, Bzp,
                               gradBx, gradBy, gradBz,
                               kappax, kappay, kappaz,
-                              position_dt, mass, q, alpha_gc[ip], mu_gc[ip]);
+                              position_dt, mass, q, alpha_loc, mu_loc);
         } else {
             UpdatePosition(xp, yp, zp, ux[ip], uy[ip], uz[ip], position_dt, mass);
         }
