@@ -22,7 +22,7 @@ void UpdateMomentumBlended(
     const amrex::ParticleReal Ex, const amrex::ParticleReal Ey, const amrex::ParticleReal Ez,
     const amrex::ParticleReal Bx, const amrex::ParticleReal By, const amrex::ParticleReal Bz,
     const amrex::ParticleReal q, const amrex::ParticleReal m, const amrex::Real dt,
-    const amrex::ParticleReal gradBx, const amrex::ParticleReal gradBy, const amrex::ParticleReal gradBz
+    const amrex::ParticleReal gradBx, const amrex::ParticleReal gradBy, const amrex::ParticleReal gradBz,
     const amrex::ParticleReal alpha_gc, const amrex::ParticleReal mu_gc)
 {
     using namespace amrex::literals;

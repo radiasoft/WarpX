@@ -110,11 +110,11 @@ void doParticleMomentumPush(amrex::ParticleReal& ux,
                                    Ex, Ey, Ez, Bx,
                                    By, Bz, qp, m, dt);    
     } else if (pusher_algo == ParticlePusherAlgo::Blended) {
-        UpdateMomentumBlended( ux, uy, uz,
-                                   Ex, Ey, Ez, Bx,
-                                   By, Bz, qp, m, dt,
-                                   gradBx, gradBy, gradBz,
-                                   alpha_gc, mu_gc);
+        UpdateMomentumBlended( ux, uy, uz,x
+                               Ex, Ey, Ez, Bx,
+                               By, Bz, qp, m, dt,
+                               gradBx, gradBy, gradBz,
+                               alpha_gc, mu_gc);
     }     
     //else {
 //        amrex::Abort("Unknown particle pusher");
