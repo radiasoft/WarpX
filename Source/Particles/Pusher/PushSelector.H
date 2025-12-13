@@ -110,7 +110,7 @@ void doParticleMomentumPush(amrex::ParticleReal& ux,
                                    Ex, Ey, Ez, Bx,
                                    By, Bz, qp, m, dt);    
     } else if (pusher_algo == ParticlePusherAlgo::Blended) {
-        UpdateMomentumBlended( ux, uy, uz,x
+        UpdateMomentumBlended( ux, uy, uz,
                                Ex, Ey, Ez, Bx,
                                By, Bz, qp, m, dt,
                                gradBx, gradBy, gradBz,
