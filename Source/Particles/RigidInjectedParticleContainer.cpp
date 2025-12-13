@@ -381,6 +381,13 @@ RigidInjectedParticleContainer::PushP (int lev, Real dt,
             amrex::ParticleReal* const AMREX_RESTRICT uypp = attribs[PIdx::uy].dataPtr();
             amrex::ParticleReal* const AMREX_RESTRICT uzpp = attribs[PIdx::uz].dataPtr();
 
+            //grab alpha and mu for blended pusher
+            int const mu_gc_comp    = GetRealCompIndex("mu_gc");
+            int const alpha_gc_comp = GetRealCompIndex("alpha_gc");
+
+            ParticleReal* const AMREX_RESTRICT alpha_gc = attribs[alpha_gc_comp].dataPtr();
+            ParticleReal* const AMREX_RESTRICT mu_gc = attribs[mu_gc_comp].dataPtr();
+
             int* AMREX_RESTRICT ion_lev = nullptr;
             if (do_field_ionization) {
                 ion_lev = pti.GetiAttribs("ionizationLevel").dataPtr();
@@ -463,10 +470,11 @@ RigidInjectedParticleContainer::PushP (int lev, Real dt,
                                                Exp, Eyp, Ezp, Bxp,
                                                Byp, Bzp, qp, mass, dt);
                 } else if (pusher_algo == ParticlePusherAlgo::Blended) {
-                    UpdateMomentumBlended( uxpp[ip], uypp[ip], uzpp[ip],
+                    UpdateMomentumBlended( ux[ip], uy[ip], uz[ip],
                                                Exp, Eyp, Ezp, Bxp,
                                                Byp, Bzp, qp, mass, dt,
-                                               gradBx, gradBy, gradBz);
+                                               gradBx, gradBy, gradBz,
+                                               alpha_gc[ip], mu_gc[ip]);
                 } else {
                     amrex::Abort("Unknown particle pusher");
                 }
