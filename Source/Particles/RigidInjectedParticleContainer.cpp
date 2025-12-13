@@ -470,7 +470,7 @@ RigidInjectedParticleContainer::PushP (int lev, Real dt,
                                                Exp, Eyp, Ezp, Bxp,
                                                Byp, Bzp, qp, mass, dt);
                 } else if (pusher_algo == ParticlePusherAlgo::Blended) {
-                    UpdateMomentumBlended( ux[ip], uy[ip], uz[ip],
+                    UpdateMomentumBlended( uxpp[ip], uypp[ip], uzpp[ip],
                                                Exp, Eyp, Ezp, Bxp,
                                                Byp, Bzp, qp, mass, dt,
                                                gradBx, gradBy, gradBz,
