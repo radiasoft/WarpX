@@ -94,9 +94,9 @@ void UpdateMomentumBlended(
     const amrex::ParticleReal duy = by*coeff;
     const amrex::ParticleReal duz = bz*coeff;
 
-    ux += 0.5_prt*(1._prt - alpha_gc)*dux;
-    uy += 0.5_prt*(1._prt - alpha_gc)*duy;
-    uz += 0.5_prt*(1._prt - alpha_gc)*duz;
+    ux += (1._prt - alpha_gc)*dux;
+    uy += (1._prt - alpha_gc)*duy;
+    uz += (1._prt - alpha_gc)*duz;
 
 }
 
