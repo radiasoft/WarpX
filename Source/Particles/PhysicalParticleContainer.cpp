@@ -1398,11 +1398,6 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
     ParticleReal* AMREX_RESTRICT alpha_x_gc = nullptr;
 
     if (WarpX::particle_pusher_algo == ParticlePusherAlgo::Blended) {
-        // Sanity: we MUST have added these components in the constructor
-        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            m_mu_gc_comp >= 0 && m_alpha_gc_comp >= 0,
-            "mu_gc / alpha_gc components not initialized for Blended pusher");
-
         mu_gc    = pti.GetAttribs("mu_gc").dataPtr() + offset;
         alpha_p_gc = pti.GetAttribs("alpha_p_gc").dataPtr() + offset;
         alpha_x_gc = pti.GetAttribs("alpha_x_gc").dataPtr() + offset;
