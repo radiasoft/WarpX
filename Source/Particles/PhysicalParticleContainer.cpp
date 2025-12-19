@@ -1546,12 +1546,14 @@ PhysicalParticleContainer::PushPX (WarpXParIter& pti,
             if (!do_sync) {
                 doParticleMomentumPush<0>(ux[ip], uy[ip], uz[ip],
                                           Exp, Eyp, Ezp, Bxp, Byp, Bzp,
+                                          gradBx, gradBy, gradBz,
                                           ion_lev ? ion_lev[ip] : 1,
                                           mass, q, pusher_algo, do_crr,
-                                          t_chi_max,
+                                          alpha_p_loc,mu_loc,t_chi_max,
                                           dt);
             } else {
                 if constexpr (qed_control == has_qed) {
+                    //Blended pusher not implemented for QED with quantum sync
                     doParticleMomentumPush<1>(ux[ip], uy[ip], uz[ip],
                                               Exp, Eyp, Ezp, Bxp, Byp, Bzp,
                                               ion_lev ? ion_lev[ip] : 1,
