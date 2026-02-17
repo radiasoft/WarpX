@@ -64,6 +64,10 @@ void LevelingThinning::BackwardCompatibility (const std::string& species_name )
     );
 }
 
+void LevelingThinning::coarsen()
+{
+}
+
 void LevelingThinning::operator() (
     const amrex::Geometry& geom_lev, WarpXParIter& pti,
     const int lev, WarpXParticleContainer * const pc) const

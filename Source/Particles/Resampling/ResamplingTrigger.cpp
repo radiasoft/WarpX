@@ -26,6 +26,16 @@ ResamplingTrigger::ResamplingTrigger (const std::string& species_name)
         pp_species_name, "resampling_trigger_max_avg_ppc", m_max_avg_ppc);
 }
 
+//secondary trigger if > 1.5 - only happens when intervals are specified?
+bool ResamplingTrigger::coarsen_triggered (const int timestep, const amrex::Real global_numparts) const
+{
+    if (!m_initialized) {initialize_global_numcells();};
+
+    const amrex::Real avg_ppc = global_numparts/m_global_numcells;
+    return (m_resampling_intervals.contains(timestep) &&
+            avg_ppc > 1.5*m_max_avg_ppc);
+}
+
 bool ResamplingTrigger::triggered (const int timestep, const amrex::Real global_numparts) const
 {
     if (!m_initialized) {initialize_global_numcells();};
