@@ -48,7 +48,9 @@ void Resampling::coarsen()
     m_resampling_algorithm->coarsen();
 }
 
-void Resampling::operator() (WarpXParIter& pti, const int lev, WarpXParticleContainer * const pc) const
+void Resampling::operator() (
+    const amrex::Geometry& geom_lev, WarpXParIter& pti,
+    const int lev, WarpXParticleContainer * const pc) const
 {
-    (*m_resampling_algorithm)(pti, lev, pc);
+    (*m_resampling_algorithm)(geom_lev, pti, lev, pc);
 }
