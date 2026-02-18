@@ -46,17 +46,12 @@ void UpdatePositionBlended ( amrex::ParticleReal& x, amrex::ParticleReal& y, amr
         constexpr amrex::ParticleReal inv_c2 = 1._prt/(PhysConst::c*PhysConst::c);
         const amrex::ParticleReal inv_gamma = 1._prt/std::sqrt(1._prt + u2*inv_c2);
 
-
         // Compute |B|
         const amrex::ParticleReal Bmag = std::sqrt(Bx*Bx + By*By + Bz*Bz);
 
         // Limit Bmag to threshold value Bmin to avoid division by zero
         constexpr amrex::ParticleReal Bmin  = 1e-12_prt;     // Tesla
-        //constexpr amrex::ParticleReal B2min = Bmin * Bmin;
         const amrex::Real invB = 1.0_prt / amrex::max(Bmag, Bmin);
-
-        // Compute blending coefficient alpha
-        //const amrex::ParticleReal alpha = ComputeBlendedAlpha(Bx, By, Bz, q, m, dt);
 
         // If B is below threshold, fall back to standard x += v dt
         // otherwise do standard blended position update with drifts
@@ -90,9 +85,6 @@ void UpdatePositionBlended ( amrex::ParticleReal& x, amrex::ParticleReal& y, amr
         const amrex::ParticleReal uperp_y = uy - upar_y;
         const amrex::ParticleReal uperp_z = uz - upar_z;
 
-        //compute magnetic moment
-        // const amrex::ParticleReal mu = m*(uperp_x*uperp_x + uperp_y*uperp_y + uperp_z*uperp_z) *0.5_prt*invB;
-
         // E×B drift: v_E = (c E × B) / B^2
         const amrex::ParticleReal ExB_x = Ey*Bz - Ez*By;
         const amrex::ParticleReal ExB_y = Ez*Bx - Ex*Bz;
@@ -113,7 +105,6 @@ void UpdatePositionBlended ( amrex::ParticleReal& x, amrex::ParticleReal& y, amr
 
 
         // Curvature drift: v_c = (γ^2 v_par^2)/((q/m) * Bmag) * (b × kappa)
-
         const amrex::ParticleReal bXkx = by*kappaz - bz*kappay;
         const amrex::ParticleReal bXky = bz*kappax - bx*kappaz;
         const amrex::ParticleReal bXkz = bx*kappay - by*kappax;
@@ -124,7 +115,6 @@ void UpdatePositionBlended ( amrex::ParticleReal& x, amrex::ParticleReal& y, amr
         const amrex::ParticleReal vcurv_x = coeff * bXkx;
         const amrex::ParticleReal vcurv_y = coeff * bXky;
         const amrex::ParticleReal vcurv_z = coeff * bXkz;
-
 
         // net drift velocity
         const amrex::ParticleReal vx_drift = vE_x + vgradB_x + vcurv_x;

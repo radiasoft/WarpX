@@ -34,16 +34,9 @@ void UpdateMomentumBlended(
     uy += econst*Ey;
     uz += econst*Ez;
 
-    // Prepare for magnetic rotation
-    // Compute blending coefficient alpha
-    // const amrex::ParticleReal alpha = ComputeBlendedAlpha(Bx, By, Bz, q, m, dt);
-
-    // Compute temporary gamma factor
+    // Compute temporary gamma factor and |B|
     constexpr amrex::ParticleReal inv_c2 = 1._prt/(PhysConst::c*PhysConst::c);
     const amrex::ParticleReal inv_gamma = 1._prt/std::sqrt(1._prt + (ux*ux + uy*uy + uz*uz)*inv_c2);
-
-    // Blended pusher includes mirror force correction to momentum
-    // compute mu using original momentum
     const amrex::ParticleReal Bmag = std::sqrt(Bx*Bx + By*By + Bz*Bz);
 
     // Limit Bmin to avoid division by zero
@@ -88,7 +81,6 @@ void UpdateMomentumBlended(
     // Mirror force correction to momentum
     const amrex::ParticleReal bdotGradB = bx*gradBx + by*gradBy + bz*gradBz;
     const amrex::ParticleReal coeff = -1._prt*(mu_gc/m) * bdotGradB * dt;
-
 
     const amrex::ParticleReal dux = bx*coeff;
     const amrex::ParticleReal duy = by*coeff;

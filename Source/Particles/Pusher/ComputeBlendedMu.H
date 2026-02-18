@@ -25,7 +25,6 @@ void ComputeBlendedMu(
 {
 
     const amrex::ParticleReal B2   = Bx*Bx + By*By + Bz*Bz;
-
     // Limit B2 to threshold value B2min to avoid division by zero
     constexpr amrex::ParticleReal B2min  = 1e-24_prt;     // Tesla
     const amrex::ParticleReal invB = 1._prt / std::sqrt(amrex::max(B2, B2min));
