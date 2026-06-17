@@ -93,6 +93,9 @@ void VelocityCoincidenceThinning::operator() (
     auto * const AMREX_RESTRICT uz = soa.GetRealData(PIdx::uz).data();
     auto * const AMREX_RESTRICT w = soa.GetRealData(PIdx::w).data();
     auto * const AMREX_RESTRICT idcpu = soa.GetIdCPUData().data();
+#if defined(WARPX_DIM_RZ)
+    auto * const AMREX_RESTRICT theta = soa.GetRealData(PIdx::theta).data();
+#endif
 
     // Using this function means that we must loop over the cells in the ParallelFor.
     auto bins = ParticleUtils::findParticlesInEachCell(geom_lev, pti, ptile);
@@ -146,7 +149,15 @@ void VelocityCoincidenceThinning::operator() (
             ReduceDataT reduce_data(reduce_op);
             using ReduceTuple = typename ReduceDataT::Type;
             reduce_op.eval(n_parts_in_tile, reduce_data, [=] AMREX_GPU_DEVICE(int i) -> ReduceTuple {
+#if defined(WARPX_DIM_RZ)
+                auto cos_t = std::cos(theta[i]);
+                auto sin_t = std::sin(theta[i]);
+                auto ur = ux[i] * cos_t + uy[i] * sin_t;
+                auto utheta = -ux[i] * sin_t + uy[i] * cos_t;
+                return {ur, utheta, uz[i], ur, utheta};
+#else
                 return {ux[i], uy[i], uz[i], ux[i], uy[i]};
+#endif
             });
             auto hv = reduce_data.value(reduce_op);
             velocityBinCalculator.ux_min = amrex::get<0>(hv);
@@ -184,7 +195,7 @@ void VelocityCoincidenceThinning::operator() (
             // Loop over particles and label them with the appropriate momentum bin
             // number. Also assign initial ordering to the sorted_indices array.
             velocityBinCalculator(
-                ux, uy, uz, indices, momentum_bin_number_data, sorted_indices_data,
+                ux, uy, uz, theta, indices, momentum_bin_number_data, sorted_indices_data,
                 cell_start, cell_stop
             );
 
@@ -197,13 +208,18 @@ void VelocityCoincidenceThinning::operator() (
 #if !defined(WARPX_DIM_1D_Z)
             amrex::ParticleReal cluster_x = 0._prt;
 #endif
+#if defined(WARPX_DIM_RZ)
+            amrex::ParticleReal cluster_sin_theta = 0._prt;
+            amrex::ParticleReal cluster_cos_theta = 0._prt;
+#endif
 #if defined(WARPX_DIM_3D)
             amrex::ParticleReal cluster_y = 0._prt;
 #endif
 #if defined(WARPX_ZINDEX)
             amrex::ParticleReal cluster_z = 0._prt;
 #endif
-            amrex::ParticleReal cluster_ux = 0._prt, cluster_uy = 0._prt, cluster_uz = 0._prt;
+            amrex::ParticleReal cluster_u1 = 0._prt, cluster_u2 = 0._prt, cluster_uz = 0._prt;
+            // amrex::ParticleReal cluster_ux = 0._prt, cluster_uy = 0._prt, cluster_uz = 0._prt;
 
             // Finally, loop through the particles in the cell and merge
             // ones in the same momentum bin
@@ -211,7 +227,17 @@ void VelocityCoincidenceThinning::operator() (
             {
                 particles_in_bin += 1;
                 const auto part_idx = indices[sorted_indices_data[i]];
-
+                
+                auto v1 = ux[part_idx];
+                auto v2 = uy[part_idx];
+#if defined(WARPX_DIM_RZ)
+                auto cos_t = std::cos(theta[part_idx]);
+                auto sin_t = std::sin(theta[part_idx]);
+                v1 = ux[part_idx] * cos_t + uy[part_idx] * sin_t;  // ur
+                v2 = -ux[part_idx] * sin_t + uy[part_idx] * cos_t; // utheta
+                cluster_sin_theta += w[part_idx] * sin_t;
+                cluster_cos_theta += w[part_idx] * cos_t;
+#endif
 #if !defined(WARPX_DIM_1D_Z)
                 cluster_x += w[part_idx]*x[part_idx];
 #endif
@@ -221,8 +247,10 @@ void VelocityCoincidenceThinning::operator() (
 #if defined(WARPX_ZINDEX)
                 cluster_z += w[part_idx]*z[part_idx];
 #endif
-                cluster_ux += w[part_idx]*ux[part_idx];
-                cluster_uy += w[part_idx]*uy[part_idx];
+                //cluster_ux += w[part_idx]*ux[part_idx];
+                //cluster_uy += w[part_idx]*uy[part_idx];
+                cluster_u1 += w[part_idx]*v1;
+                cluster_u2 += w[part_idx]*v2;
                 cluster_uz += w[part_idx]*uz[part_idx];
                 total_weight += w[part_idx];
                 total_energy += w[part_idx] * Algorithms::KineticEnergy(
@@ -243,18 +271,21 @@ void VelocityCoincidenceThinning::operator() (
 #if !defined(WARPX_DIM_1D_Z)
                         cluster_x /= total_weight;
 #endif
+#if defined(WARPX_DIM_RZ)
+                        auto cluster_theta = std::atan2(cluster_sin_theta, cluster_cos_theta);
+#endif
 #if defined(WARPX_DIM_3D)
                         cluster_y /= total_weight;
 #endif
 #if defined(WARPX_ZINDEX)
                         cluster_z /= total_weight;
 #endif
-                        cluster_ux /= total_weight;
-                        cluster_uy /= total_weight;
+                        cluster_u1 /= total_weight;
+                        cluster_u2 /= total_weight;
                         cluster_uz /= total_weight;
 
                         // perform merging of momentum bin particles
-                        auto u_perp2 = cluster_ux*cluster_ux + cluster_uy*cluster_uy;
+                        auto u_perp2 = cluster_u1*cluster_u1 + cluster_u2*cluster_u2;
                         auto u_perp = std::sqrt(u_perp2);
                         auto cluster_u_mag2 = u_perp2 + cluster_uz*cluster_uz;
                         auto cluster_u_mag = std::sqrt(cluster_u_mag2);
@@ -277,19 +308,32 @@ void VelocityCoincidenceThinning::operator() (
                         // calculate rotation angles to parallel coord. frame
                         auto cos_theta = (cluster_u_mag > 0._prt) ? cluster_uz / cluster_u_mag : 0._prt;
                         auto sin_theta = (cluster_u_mag > 0._prt) ? u_perp / cluster_u_mag : 0._prt;
-                        auto cos_phi = (u_perp > 0._prt) ? cluster_ux / u_perp : 0._prt;
-                        auto sin_phi = (u_perp > 0._prt) ? cluster_uy / u_perp : 0._prt;
+                        auto cos_phi = (u_perp > 0._prt) ? cluster_u1 / u_perp : 0._prt;
+                        auto sin_phi = (u_perp > 0._prt) ? cluster_u2 / u_perp : 0._prt;
 
-                        // rotate new velocity vector to labframe
-                        auto ux_new = (
-                            vx * cos_theta * cos_phi - vy * sin_phi
-                            + cluster_u_mag * sin_theta * cos_phi
-                        );
-                        auto uy_new = (
-                            vx * cos_theta * sin_phi + vy * cos_phi
-                            + cluster_u_mag * sin_theta * sin_phi
-                        );
+                        // Scattered local cylindrical coordinates
+                        auto u1_new = (vx * cos_theta * cos_phi - vy * sin_phi + cluster_u_mag * sin_theta * cos_phi);
+                        auto u2_new = (vx * cos_theta * sin_phi + vy * cos_phi + cluster_u_mag * sin_theta * sin_phi);
                         auto uz_new = -vx * sin_theta + cluster_u_mag * cos_theta;
+
+                        auto u1_new2 = 2._prt * cluster_u1 - u1_new;
+                        auto u2_new2 = 2._prt * cluster_u2 - u2_new;
+                        auto uz_new2 = 2._prt * cluster_uz - uz_new;
+
+                        // Reproject back to global Cartesian Frame arrays
+#if defined(WARPX_DIM_RZ)
+                        auto cos_avg = std::cos(cluster_theta);
+                        auto sin_avg = std::sin(cluster_theta);
+                        auto ux_new = u1_new * cos_avg - u2_new * sin_avg;
+                        auto uy_new = u1_new * sin_avg + u2_new * cos_avg;
+                        auto ux_new2 = u1_new2 * cos_avg - u2_new2 * sin_avg;
+                        auto uy_new2 = u1_new2 * sin_avg + u2_new2 * cos_avg;
+#else
+                        auto ux_new = u1_new;
+                        auto uy_new = u2_new;
+                        auto ux_new2 = u1_new2;
+                        auto uy_new2 = u2_new2;
+#endif                       
 
                         // set the last two particles' attributes according to
                         // the bin's aggregate values
@@ -300,6 +344,10 @@ void VelocityCoincidenceThinning::operator() (
 #if !defined(WARPX_DIM_1D_Z)
                         x[part_idx] = cluster_x;
                         x[part_idx2] = cluster_x;
+#endif
+#if defined(WARPX_DIM_RZ)
+                        theta[part_idx] = cluster_theta;
+                        theta[part_idx2] = cluster_theta;
 #endif
 #if defined(WARPX_DIM_3D)
                         y[part_idx] = cluster_y;
@@ -313,9 +361,9 @@ void VelocityCoincidenceThinning::operator() (
                         ux[part_idx] = ux_new;
                         uy[part_idx] = uy_new;
                         uz[part_idx] = uz_new;
-                        ux[part_idx2] = 2._prt * cluster_ux - ux_new;
-                        uy[part_idx2] = 2._prt * cluster_uy - uy_new;
-                        uz[part_idx2] = 2._prt * cluster_uz - uz_new;
+                        ux[part_idx2] = ux_new2;
+                        uy[part_idx2] = uy_new2;
+                        uz[part_idx2] = uz_new2;
 
                         // set ids of merged particles so they will be removed
                         for (int j = 2; j < particles_in_bin; ++j){
@@ -330,14 +378,18 @@ void VelocityCoincidenceThinning::operator() (
 #if !defined(WARPX_DIM_1D_Z)
                     cluster_x = 0_prt;
 #endif
+#if defined(WARPX_DIM_RZ)
+                    cluster_sin_theta = 0._prt;
+                    cluster_cos_theta = 0._prt;
+#endif
 #if defined(WARPX_DIM_3D)
                     cluster_y = 0_prt;
 #endif
 #if defined(WARPX_ZINDEX)
                     cluster_z = 0_prt;
 #endif
-                    cluster_ux = 0_prt;
-                    cluster_uy = 0_prt;
+                    cluster_u1 = 0_prt;
+                    cluster_u2 = 0_prt;
                     cluster_uz = 0_prt;
                 }
             }
