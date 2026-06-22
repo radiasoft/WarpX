@@ -93,8 +93,11 @@ void VelocityCoincidenceThinning::operator() (
     auto * const AMREX_RESTRICT uz = soa.GetRealData(PIdx::uz).data();
     auto * const AMREX_RESTRICT w = soa.GetRealData(PIdx::w).data();
     auto * const AMREX_RESTRICT idcpu = soa.GetIdCPUData().data();
+// Define a dummy pointer if not in RZ
 #if defined(WARPX_DIM_RZ)
     auto * const AMREX_RESTRICT theta = soa.GetRealData(PIdx::theta).data();
+#else
+    amrex::ParticleReal* const theta = nullptr;
 #endif
 
     // Using this function means that we must loop over the cells in the ParallelFor.
