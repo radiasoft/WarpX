@@ -1,11 +1,11 @@
-# Set C++17 for the whole build if not otherwise requested
+# Set C++20 for the whole build if not otherwise requested
 #
-# This is the easiest way to push up a C++17 requirement for AMReX, PICSAR and
+# This is the easiest way to push up a C++20 requirement for AMReX, PICSAR and
 # openPMD-api until they increase their requirement.
 #
-macro(set_cxx17_superbuild)
+macro(set_cxx20_superbuild)
     if(NOT DEFINED CMAKE_CXX_STANDARD)
-        set(CMAKE_CXX_STANDARD 17)
+        set(CMAKE_CXX_STANDARD 20)
     endif()
     if(NOT DEFINED CMAKE_CXX_EXTENSIONS)
         set(CMAKE_CXX_EXTENSIONS OFF)
@@ -15,7 +15,7 @@ macro(set_cxx17_superbuild)
     endif()
 
     if(NOT DEFINED CMAKE_CUDA_STANDARD)
-        set(CMAKE_CUDA_STANDARD 17)
+        set(CMAKE_CUDA_STANDARD 20)
     endif()
     if(NOT DEFINED CMAKE_CUDA_EXTENSIONS)
         set(CMAKE_CUDA_EXTENSIONS OFF)
@@ -191,7 +191,11 @@ function(warpx_set_compile_warnings tgt)
     elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
         target_compile_options(${tgt} PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Woverloaded-virtual -Wextra-semi -Wunreachable-code)
     elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-        target_compile_options(${tgt} PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Woverloaded-virtual -Wunreachable-code -Wno-array-bounds)
+        target_compile_options(${tgt} PRIVATE -Wall -Wextra -Wshadow -Woverloaded-virtual -Wunreachable-code -Wno-array-bounds)
+        if(NOT WarpX_COMPUTE STREQUAL CUDA)
+            # In older NVCC, -Wpedantic causes "warning: style of line directive is a GCC extension"
+            target_compile_options(${tgt} PRIVATE -Wpedantic)
+        endif()
     elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
         # Warning C4503: "decorated name length exceeded, name was truncated".
         # Symbols longer than 4096 chars are truncated (and hashed instead).
@@ -454,6 +458,7 @@ function(warpx_print_summary)
     message("    SIMD: ${WarpX_SIMD}")
     message("    DIMS: ${WarpX_DIMS}")
     message("    Embedded Boundary: ${WarpX_EB}")
+    message("    PETSc: ${WarpX_PETSC}")
     message("    IPO/LTO: ${WarpX_IPO}")
     message("    LIB: ${WarpX_LIB}${LIB_TYPE}")
     message("    MPI: ${WarpX_MPI}")

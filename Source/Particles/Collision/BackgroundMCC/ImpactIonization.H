@@ -96,7 +96,7 @@ public:
 
         // calculate kinetic energy
         constexpr auto eV = PhysConst::q_e;
-        E_coll = Algorithms::KineticEnergy<double>(ux, uy, uz, m_mass)/eV;
+        E_coll = Algorithms::KineticEnergy<double>(ux, uy, uz, static_cast<amrex::ParticleReal>(m_mass))/eV;
 
 
         // get collision cross-section
@@ -221,7 +221,7 @@ public:
         
         // const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost) * PhysConst::q_e);
         const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost - W_elec) * PhysConst::q_e);
-        constexpr auto c2 = PhysConst::c * PhysConst::c;
+        constexpr auto c2 = PhysConst::c2;
 
         // Corresponding momentum of the incident species
         const auto mc2 = m_mass1 * c2;

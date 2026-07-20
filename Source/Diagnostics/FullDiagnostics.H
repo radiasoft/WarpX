@@ -2,7 +2,9 @@
 #define WARPX_FULLDIAGNOSTICS_H_
 
 #include "Diagnostics.H"
-#include "Utils/Parser/IntervalsParser.H"
+#include "Particles/MultiParticleContainer.H"
+
+#include <ablastr/utils/text/IntervalsParser.H>
 
 #include <AMReX_REAL.H>
 
@@ -24,7 +26,7 @@ private:
     /** Read user-requested parameters for full diagnostics */
     void ReadParameters ();
     /** Determines timesteps at which full diagnostics are written to file */
-    utils::parser::IntervalsParser m_intervals;
+    ablastr::utils::text::IntervalsParser m_intervals;
     /** Whether to plot raw (i.e., NOT cell-centered) fields */
     bool m_plot_raw_fields = false;
     /** Whether to plot guard cells of raw fields */
