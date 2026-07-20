@@ -58,7 +58,7 @@ with open("./warpx_used_inputs", "r") as f:
 input_dict = parse_input_file("./warpx_used_inputs")
 is_RZ = input_has_value(input_dict, "geometry.dims", "RZ")
 
-## Check which kind of test we are doing: D+T or D+D
+## Check which kind of test we are doing: D+T, D+D, or D+He3
 # Define reactants and products
 if re.search("tritium", warpx_used_inputs):
     # If tritium appears in the file, than this is the D+T test
@@ -67,6 +67,13 @@ if re.search("tritium", warpx_used_inputs):
     product_species = ["helium4", "neutron"]
     ntests = 2
     E_fusion = 17.58929696 * MeV_to_Joule
+elif re.search("helium3", warpx_used_inputs):
+    # If helium3 appears in the file, then this is the D+He3 test
+    reaction_type = "DHe3"
+    reactant_species = ["deuterium", "helium3"]
+    product_species = ["helium4", "proton"]
+    ntests = 2
+    E_fusion = 18.353 * MeV_to_Joule
 else:
     # else, this is the D+D test
     reaction_type = "DD"
@@ -82,6 +89,7 @@ mass = {
     "helium3": 3.016029 * scc.m_u - 2 * scc.m_e,
     "helium4": 4.00260325413 * scc.m_u - 2 * scc.m_e,
     "neutron": 1.0013784193052508 * scc.m_p,
+    "proton": scc.m_p, # Added for D-He3 products
 }
 m_reduced = np.prod([mass[s] for s in reactant_species]) / np.sum(
     [mass[s] for s in reactant_species]
@@ -293,6 +301,10 @@ def cross_section(E_keV):
     ## in H.-S. Bosch and G.M. Hale 1992 Nucl. Fusion 32 611
     joule_to_keV = 1.0e-3 / scc.e
     B_G = scc.pi * scc.alpha * np.sqrt(2.0 * m_reduced * scc.c**2 * joule_to_keV)
+    
+    if reaction_type == "DHe3":
+        B_G *= 2.0 # Adjust Gamow constant for Z=2 (Helium)
+
     if reaction_type == "DT":
         A1 = 6.927e4
         A2 = 7.454e8
@@ -313,6 +325,16 @@ def cross_section(E_keV):
         B2 = 0
         B3 = 0
         B4 = 0
+    elif reaction_type == "DHe3":
+        A1 = 5.7501e6
+        A2 = 2.5226e3
+        A3 = 4.5566e1
+        A4 = 0.0
+        A5 = 0.0
+        B1 = -3.1995e-3
+        B2 = -8.5530e-6
+        B3 = 5.9014e-8
+        B4 = 0.0
     else:
         raise RuntimeError(f"Reaction type '{reaction_type}' not implemented.")
 
@@ -320,10 +342,14 @@ def cross_section(E_keV):
         A1 + E_keV * (A2 + E_keV * (A3 + E_keV * (A4 + E_keV * A5)))
     ) / (1 + E_keV * (B1 + E_keV * (B2 + E_keV * (B3 + E_keV * B4))))
     millibarn_to_barn = 1.0e-3
-    return (
-        millibarn_to_barn * astrophysical_factor / E_keV * np.exp(-B_G / np.sqrt(E_keV))
-    )
-
+    
+    sigma = millibarn_to_barn * astrophysical_factor / E_keV * np.exp(-B_G / np.sqrt(E_keV))
+    
+    # Enforce the 0.3 keV validity threshold for D+He3
+    if reaction_type == "DHe3":
+        sigma = np.where(E_keV < 0.3, 0.0, sigma)
+        
+    return sigma
 
 def E_com_to_p_sq_com(m1, m2, E):
     ## E is the total (kinetic+mass) energy of a two particle (with mass m1 and m2) system in
