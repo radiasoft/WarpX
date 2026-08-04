@@ -62,6 +62,7 @@ namespace {
                             const amrex::ParticleReal& m1_in, const amrex::ParticleReal& m2_in,
                             const amrex::ParticleReal& m1_out, const amrex::ParticleReal& m2_out,
                             const amrex::ParticleReal& E_fusion,
+                            const CollisionType& collision_type, // ADDED: Fusion type identifier
                             ScatteringAngleModel const scattering_angle_model,
                             const amrex::RandomEngine& engine)
     {
@@ -83,20 +84,38 @@ namespace {
             scattering_angle_model,
             engine);
 
-        // Fill momentum of product species (note that we actually
-        // create 4 products, 2 at the position of each incident particle)
-        soa1_out.m_rdata[PIdx::ux][idx1_out_start] = ux1_out;
-        soa1_out.m_rdata[PIdx::uy][idx1_out_start] = uy1_out;
-        soa1_out.m_rdata[PIdx::uz][idx1_out_start] = uz1_out;
-        soa1_out.m_rdata[PIdx::ux][idx1_out_start + 1] = ux1_out;
-        soa1_out.m_rdata[PIdx::uy][idx1_out_start + 1] = uy1_out;
-        soa1_out.m_rdata[PIdx::uz][idx1_out_start + 1] = uz1_out;
-        soa2_out.m_rdata[PIdx::ux][idx2_out_start] = ux2_out;
-        soa2_out.m_rdata[PIdx::uy][idx2_out_start] = uy2_out;
-        soa2_out.m_rdata[PIdx::uz][idx2_out_start] = uz2_out;
-        soa2_out.m_rdata[PIdx::ux][idx2_out_start + 1] = ux2_out;
-        soa2_out.m_rdata[PIdx::uy][idx2_out_start + 1] = uy2_out;
-        soa2_out.m_rdata[PIdx::uz][idx2_out_start + 1] = uz2_out;
+
+        // Treat the special case of D+He3 fusion, where we want to create only one product of each species
+        if (collision_type == CollisionType::DeuteriumHeliumToProtonHeliumFusion) {
+            
+            // OPTIMIZED 2-PARTICLE MODE: D+He3 local charge conservation fix
+            // Create only 1 product of each species
+            soa1_out.m_rdata[PIdx::ux][idx1_out_start] = ux1_out;
+            soa1_out.m_rdata[PIdx::uy][idx1_out_start] = uy1_out;
+            soa1_out.m_rdata[PIdx::uz][idx1_out_start] = uz1_out;
+            
+            soa2_out.m_rdata[PIdx::ux][idx2_out_start] = ux2_out;
+            soa2_out.m_rdata[PIdx::uy][idx2_out_start] = uy2_out;
+            soa2_out.m_rdata[PIdx::uz][idx2_out_start] = uz2_out;
+
+        } else {
+        
+            // Apply the statndard 4-particle algorithm
+            // Fill momentum of product species (note that we actually
+            // create 4 products, 2 at the position of each incident particle)
+            soa1_out.m_rdata[PIdx::ux][idx1_out_start] = ux1_out;
+            soa1_out.m_rdata[PIdx::uy][idx1_out_start] = uy1_out;
+            soa1_out.m_rdata[PIdx::uz][idx1_out_start] = uz1_out;
+            soa1_out.m_rdata[PIdx::ux][idx1_out_start + 1] = ux1_out;
+            soa1_out.m_rdata[PIdx::uy][idx1_out_start + 1] = uy1_out;
+            soa1_out.m_rdata[PIdx::uz][idx1_out_start + 1] = uz1_out;
+            soa2_out.m_rdata[PIdx::ux][idx2_out_start] = ux2_out;
+            soa2_out.m_rdata[PIdx::uy][idx2_out_start] = uy2_out;
+            soa2_out.m_rdata[PIdx::uz][idx2_out_start] = uz2_out;
+            soa2_out.m_rdata[PIdx::ux][idx2_out_start + 1] = ux2_out;
+            soa2_out.m_rdata[PIdx::uy][idx2_out_start + 1] = uy2_out;
+            soa2_out.m_rdata[PIdx::uz][idx2_out_start + 1] = uz2_out;
+        }
     }
 }
 

@@ -130,7 +130,8 @@ public:
         // one at the position of each particle that collided.
         // This allows for exact charge conservation.
         const int products_per_reactant_factor =
-            (m_collision_type == CollisionType::LinearCompton) ? 1 : 2;
+            (m_collision_type == CollisionType::LinearCompton || 
+             m_collision_type == CollisionType::DeuteriumHeliumToProtonHeliumFusion) ? 1 : 2; // NEED TO REVISE COLLISION CHECK
         amrex::Vector<int> num_added_vec(m_num_product_species);
         for (int i = 0; i < m_num_product_species; i++)
         {
@@ -206,6 +207,30 @@ public:
                             soa_products_data[j].m_rdata[PIdx::w][product_index] =
                                 p_pair_reaction_weight[i];
                         }
+                        else if (t_collision_type == CollisionType::DeuteriumHeliumToProtonHeliumFusion)
+                        {
+                            // OPTIMIZED 2-PARTICLE ALGORITHM: D+He3 local charge conservation fix
+                            // One macroparticle per product species.
+                            const auto product_index = products_np_data[j] +
+                                (p_offsets[i]*p_num_products_device[j] + k);
+                            
+                            if (j == 0) // First product (Proton) at first reactant (Deuterium) position
+                            {
+                                copy_species1[j](soa_products_data[j], soa_1,
+                                    static_cast<int>(p_pair_indices_1[i]),
+                                    static_cast<int>(product_index), engine);
+                            }
+                            else if (j == 1) // Second product (Helium-4) at second reactant (Helium-3) position
+                            {
+                                copy_species2[j](soa_products_data[j], soa_2,
+                                    static_cast<int>(p_pair_indices_2[i]),
+                                    static_cast<int>(product_index), engine);
+                            }
+                            // Assign the full reaction weight
+                            soa_products_data[j].m_rdata[PIdx::w][product_index] =
+                                p_pair_reaction_weight[i];
+                        }
+
                         else
                         {
                             // Create one product at the position of each source particle
@@ -244,9 +269,10 @@ public:
                     TwoProductFusionInitializeMomentum(soa_1, soa_2,
                         soa_products_data[0], soa_products_data[1],
                         p_pair_indices_1[i], p_pair_indices_2[i],
-                        products_np_data[0] + 2*p_offsets[i]*p_num_products_device[0],
-                        products_np_data[1] + 2*p_offsets[i]*p_num_products_device[1],
+                        products_np_data[0] + products_per_reactant_factor*p_offsets[i]*p_num_products_device[0],
+                        products_np_data[1] + products_per_reactant_factor*p_offsets[i]*p_num_products_device[1],
                         m1, m2, products_mass_data[0], products_mass_data[1], fusion_energy,
+                        t_collision_type, // ADDED: Pass the collision type here
                         t_scattering_angle_model, engine);
                 }
                 else if(t_collision_type == CollisionType::LinearBreitWheeler){
