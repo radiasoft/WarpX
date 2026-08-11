@@ -12,6 +12,7 @@
 
 #include "Particles/Collision/BinaryCollision/NuclearFusion/TwoProductFusionInitializeMomentum.H"
 #include "Particles/Collision/BinaryCollision/NuclearFusion/ProtonBoronFusionInitializeMomentum.H"
+#include "Particles/Collision/BinaryCollision/NuclearFusion/HeliumHeliumFusionInitializeMomentum.H"
 #include "Particles/Collision/BinaryCollision/LinearBreitWheeler/LinearBreitWheelerInitializeMomentum.H"
 #include "Particles/Collision/BinaryCollision/LinearCompton/LinearComptonInitializeMomentum.H"
 #include "Particles/ParticleCreation/SmartCopy.H"
@@ -231,6 +232,19 @@ public:
                                 p_pair_reaction_weight[i];
                         }
 
+                        else if (t_collision_type == CollisionType::HeliumHeliumFusion)
+                        {
+                            const index_type alpha_start_index = products_np_data[0] + 
+                                                                2*p_offsets[i]*p_num_products_device[0];
+                            const index_type proton_start_index = products_np_data[1] + 
+                                                                2*p_offsets[i]*p_num_products_device[1];
+
+                            HeliumHeliumFusionInitializeMomentum(soa_1, soa_2, 
+                                                               soa_products_data[0], soa_products_data[1],
+                                                               p_pair_indices_1[i], p_pair_indices_2[i],
+                                                               alpha_start_index, proton_start_index,
+                                                        m1, m2, engine);
+                        }
                         else
                         {
                             // Create one product at the position of each source particle

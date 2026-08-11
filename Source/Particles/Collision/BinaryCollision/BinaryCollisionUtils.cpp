@@ -247,6 +247,22 @@ namespace BinaryCollisionUtils{
                 "ERROR: Product species of proton-boron fusion must be of type helium4");
             fusion_type = NuclearFusionType::ProtonBoronToAlphas;
         }
+        else if (species1.AmIA<PhysicalSpecies::helium3>() && species2.AmIA<PhysicalSpecies::helium3>())
+        {
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                product_species_name.size() == 2u,
+                "ERROR: He3-He3 fusion must contain exactly two product species");
+            auto& product_species1 = mypc->GetParticleContainerFromName(product_species_name[0]);
+            auto& product_species2 = mypc->GetParticleContainerFromName(product_species_name[1]);
+
+            // Mass after is 1 alpha + 2 protons
+            mass_after = product_species1.getMass() + 2.0_prt * product_species2.getMass(); 
+
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+                (product_species1.AmIA<PhysicalSpecies::helium4>() && product_species2.AmIA<PhysicalSpecies::proton>()),
+                "ERROR: Product species of He3-He3 fusion must be of type helium4 (first) and proton (second)");
+            fusion_type = NuclearFusionType::HeliumHelium;
+        }
         else {
             WARPX_ABORT_WITH_MESSAGE("Binary nuclear fusion not implemented between species " +
                             species_names[0] + " of type " + species1.getSpeciesTypeName() +
@@ -292,7 +308,11 @@ namespace BinaryCollisionUtils{
             expected_fusion_energy = 8.68212502e6_prt * PhysConst::q_e;
             error_msg << "Fusion energy mismatch in p + B11 -> 3 He4\n";
         }
-
+        if (fusion_type == NuclearFusionType::HeliumHelium) {
+            expected_fusion_energy = 12.859e6_prt * PhysConst::q_e;
+            error_msg << "Fusion energy mismatch in He3 + He3 -> He4 + 2p\n";
+        }
+        
         const amrex::ParticleReal energy_error = amrex::Math::abs(fusion_energy - expected_fusion_energy);
         const amrex::ParticleReal energy_rel_tol = 0.01_prt;
 

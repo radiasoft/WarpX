@@ -34,6 +34,19 @@ ParticleCreationFunc::ParticleCreationFunc (const std::string& collision_name,
         m_num_products_device.push_back(3);
 #endif
     }
+    else if (m_collision_type == CollisionType::HeliumHeliumFusion)
+    {
+        // He3-He3 fusion produces 2 distinct species: alphas and protons
+        m_num_product_species = 2;
+        // It produces 1 alpha and 2 protons per fusion reaction
+        m_num_products_host.push_back(1);
+        m_num_products_host.push_back(2);
+#ifndef AMREX_USE_GPU
+        // On CPU, the device vector can be filled immediately
+        m_num_products_device.push_back(1);
+        m_num_products_device.push_back(2);
+#endif
+    }
     else if ((BinaryCollisionUtils::is_two_product_fusion_type(m_collision_type))
         || (m_collision_type == CollisionType::LinearBreitWheeler)
         || (m_collision_type == CollisionType::LinearCompton))

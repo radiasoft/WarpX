@@ -21,6 +21,7 @@ enum struct CollisionType { DeuteriumTritiumToNeutronHeliumFusion,
                             DeuteriumDeuteriumToNeutronHeliumFusion,
                             DeuteriumHeliumToProtonHeliumFusion,
                             ProtonBoronToAlphasFusion,
+                            HeliumHeliumFusion,
                             Bremsstrahlung,
                             DSMC,
                             PairwiseCoulomb,
@@ -34,6 +35,7 @@ enum struct NuclearFusionType {
                                 DeuteriumDeuteriumToNeutronHelium,
                                 DeuteriumHeliumToProtonHelium,
                                 ProtonBoronToAlphas,
+                                HeliumHelium,
                                 Undefined };
 
 namespace BinaryCollisionUtils{
@@ -81,6 +83,9 @@ namespace BinaryCollisionUtils{
         }
         else if (fusion_type == NuclearFusionType::ProtonBoronToAlphas) {
             collision_type = CollisionType::ProtonBoronToAlphasFusion;
+        }
+        else if (fusion_type == NuclearFusionType::HeliumHelium) {
+            collision_type = CollisionType::HeliumHeliumFusion;
         }
         else {
             AMREX_IF_ON_HOST((
