@@ -73,7 +73,7 @@ amrex::ParticleReal HeliumHeliumFusionCrossSectionSFIII (const amrex::ParticleRe
     // Explicitly define the fine structure constant
     constexpr amrex::ParticleReal alpha = 1.0_prt / 137.035999_prt;
     
-    constexpr amrex::ParticleReal factor = 4.0_prt * PhysConst::pi * alpha *
+    constexpr amrex::ParticleReal factor = 4.0_prt * MathConst::pi * alpha *
         std::sqrt(0.5_prt * static_cast<amrex::ParticleReal>(m_He3) * PhysConst::c * PhysConst::c / (1.e6_prt * PhysConst::q_e));
     
     const amrex::ParticleReal two_pi_eta = factor / std::sqrt(E_MeV);
@@ -109,3 +109,4 @@ amrex::ParticleReal HeliumHeliumFusionCrossSection (const amrex::ParticleReal& E
     constexpr amrex::ParticleReal barn_to_sqm = 1.e-28_prt;
     return cross_section_b * barn_to_sqm;
 }
+#endif // WARPX_HELIUM_HELIUM_FUSION_CROSS_SECTION_H
