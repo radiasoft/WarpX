@@ -239,5 +239,5 @@ namespace {
         soa_proton.m_rdata[PIdx::uy][idx_proton_start + 3] = uy_p2;
         soa_proton.m_rdata[PIdx::uz][idx_proton_start + 3] = uz_p2;
     }
-
+}
 #endif // WARPX_HELIUM_HELIUM_FUSION_INITIALIZE_MOMENTUM_H
