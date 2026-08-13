@@ -43,7 +43,7 @@ namespace {
      * @param[in] engine the random engine
      */
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    void HeliumHeliumFusionInitializeMomentum (
+    void He3He3FusionInitializeMomentum (
                             const SoaData_type& soa_1, const SoaData_type& soa_2,
                             SoaData_type& soa_alpha, SoaData_type& soa_proton,
                             const index_type& idx_1, const index_type& idx_2,
@@ -52,102 +52,106 @@ namespace {
                             const amrex::ParticleReal& m1, const amrex::ParticleReal& m2,
                             const amrex::RandomEngine& engine)
     {
-        using namespace amrex::literals;
+        // Enforce double precision for all kinematic calculations to prevent catastrophic cancellation
+        constexpr double c2_dbl = PhysConst::c * PhysConst::c;
+        constexpr double inv_c_dbl = 1.0 / PhysConst::c;
 
-        constexpr amrex::ParticleReal mev_to_joule = PhysConst::q_e * 1.e6_prt;
-        constexpr amrex::ParticleReal c2 = PhysConst::c * PhysConst::c;
-        constexpr amrex::ParticleReal inv_c = 1.0_prt / PhysConst::c;
+        constexpr double m_alpha_dbl = PhysConst::m_u * 4.00260325413 - 2.0 * PhysConst::m_e;
+        constexpr double m_proton_dbl = PhysConst::m_p;
+        
+        const double m1_dbl = static_cast<double>(m1);
+        const double m2_dbl = static_cast<double>(m2);
 
-        // Q-value of the He3 + He3 -> alpha + 2p reaction
-        constexpr amrex::ParticleReal E_fusion = 12.8589_prt * mev_to_joule;
+        // Extract momenta of the reacting He3 macroparticles (u = p / m)
+        const double u1x_dbl = static_cast<double>(soa_1.m_rdata[PIdx::ux][idx_1]);
+        const double u1y_dbl = static_cast<double>(soa_1.m_rdata[PIdx::uy][idx_1]);
+        const double u1z_dbl = static_cast<double>(soa_1.m_rdata[PIdx::uz][idx_1]);
+        const double g1_dbl = std::sqrt(1.0 + (u1x_dbl*u1x_dbl + u1y_dbl*u1y_dbl + u1z_dbl*u1z_dbl)*inv_c_dbl*inv_c_dbl);
 
-        constexpr double m_alpha = PhysConst::m_u * 4.00260325413_prt - 2.0_prt * PhysConst::m_e;
-        constexpr double m_proton = PhysConst::m_p;
-        constexpr double m_He3 = 3.0160293_prt * PhysConst::m_u - 2.0_prt * PhysConst::m_e;
-
-        // Extract momenta of the reacting He3 macroparticles (u = gamma * v = p / m)
-        const amrex::ParticleReal u1x = soa_1.m_rdata[PIdx::ux][idx_1];
-        const amrex::ParticleReal u1y = soa_1.m_rdata[PIdx::uy][idx_1];
-        const amrex::ParticleReal u1z = soa_1.m_rdata[PIdx::uz][idx_1];
-        const amrex::ParticleReal g1 = std::sqrt(1.0_prt + (u1x*u1x + u1y*u1y + u1z*u1z)*inv_c*inv_c);
-
-        const amrex::ParticleReal u2x = soa_2.m_rdata[PIdx::ux][idx_2];
-        const amrex::ParticleReal u2y = soa_2.m_rdata[PIdx::uy][idx_2];
-        const amrex::ParticleReal u2z = soa_2.m_rdata[PIdx::uz][idx_2];
-        const amrex::ParticleReal g2 = std::sqrt(1.0_prt + (u2x*u2x + u2y*u2y + u2z*u2z)*inv_c*inv_c);
+        const double u2x_dbl = static_cast<double>(soa_2.m_rdata[PIdx::ux][idx_2]);
+        const double u2y_dbl = static_cast<double>(soa_2.m_rdata[PIdx::uy][idx_2]);
+        const double u2z_dbl = static_cast<double>(soa_2.m_rdata[PIdx::uz][idx_2]);
+        const double g2_dbl = std::sqrt(1.0 + (u2x_dbl*u2x_dbl + u2y_dbl*u2y_dbl + u2z_dbl*u2z_dbl)*inv_c_dbl*inv_c_dbl);
 
         // Calculate total energy and momentum in the lab frame
-        const amrex::ParticleReal E_lab_tot = (g1 * m1 + g2 * m2) * c2;
-        const amrex::ParticleReal px_lab_tot = m1 * u1x + m2 * u2x;
-        const amrex::ParticleReal py_lab_tot = m1 * u1y + m2 * u2y;
-        const amrex::ParticleReal pz_lab_tot = m1 * u1z + m2 * u2z;
-
-        const amrex::ParticleReal p_lab_tot_sq = px_lab_tot*px_lab_tot + py_lab_tot*py_lab_tot + pz_lab_tot*pz_lab_tot;
+        const double E_lab_tot_dbl = (g1_dbl * m1_dbl + g2_dbl * m2_dbl) * c2_dbl;
+        const double px_lab_tot_dbl = m1_dbl * u1x_dbl + m2_dbl * u2x_dbl;
+        const double py_lab_tot_dbl = m1_dbl * u1y_dbl + m2_dbl * u2y_dbl;
+        const double pz_lab_tot_dbl = m1_dbl * u1z_dbl + m2_dbl * u2z_dbl;
+        const double p_lab_tot_sq_dbl = px_lab_tot_dbl*px_lab_tot_dbl + py_lab_tot_dbl*py_lab_tot_dbl + pz_lab_tot_dbl*pz_lab_tot_dbl;
 
         // Invariant mass of the system
-        const amrex::ParticleReal M_inv = std::sqrt(E_lab_tot*E_lab_tot*inv_c*inv_c - p_lab_tot_sq) * inv_c;
+        const double M_inv_dbl = std::sqrt(E_lab_tot_dbl*E_lab_tot_dbl*inv_c_dbl*inv_c_dbl - p_lab_tot_sq_dbl) * inv_c_dbl;
 
         // Total kinetic energy available for the products in the CM frame
-        const amrex::ParticleReal Q_tot = (M_inv - static_cast<amrex::ParticleReal>(m_alpha + 2.0*m_proton)) * c2 + E_fusion;
+        const double Q_tot_dbl = (M_inv_dbl - (m_alpha_dbl + 2.0*m_proton_dbl)) * c2_dbl;
 
         // -------------------------------------------------------------------------
         // 1. Phase Space Sampling for Energy Distribution
-        // Using non-relativistic 3-body phase space: P(E_pp) ~ sqrt(E_pp * (Q_tot - E_pp))
-        amrex::ParticleReal x, y;
+        amrex::ParticleReal x_rnd, y_rnd;
         do {
-            x = amrex::Random(engine);
-            y = 0.5_prt * amrex::Random(engine); // Maximum of sqrt(x*(1-x)) is 0.5
-        } while (y > std::sqrt(x * (1.0_prt - x)));
+            x_rnd = amrex::Random(engine);
+            y_rnd = 0.5_prt * amrex::Random(engine); 
+        } while (y_rnd > std::sqrt(x_rnd * (1.0_prt - x_rnd)));
+        
+        const double x = static_cast<double>(x_rnd);
+        const double E_pp = x * Q_tot_dbl; // CM kinetic energy of the 2-proton system
+        const double T_avail = Q_tot_dbl - E_pp; // Kinetic energy for alpha + pp_sys recoil
 
-        const amrex::ParticleReal E_pp = x * Q_tot; // CM kinetic energy of the 2-proton system
-        const amrex::ParticleReal E_alpha = (1.0_prt - x) * Q_tot; // CM kinetic energy of the alpha
+        // Mass of the 2-proton system
+        const double mass_pp = 2.0*m_proton_dbl + E_pp*inv_c_dbl*inv_c_dbl;
 
         // -------------------------------------------------------------------------
-        // 2. Alpha Particle Kinematics in the Total CM Frame
-        const amrex::ParticleReal p_alpha_cm = std::sqrt(2.0_prt * static_cast<amrex::ParticleReal>(m_alpha) * E_alpha);
+        // 2. Alpha Particle and PP System Kinematics in the Total CM Frame
+        const double reduced_mass_alpha_pp = m_alpha_dbl * mass_pp / (m_alpha_dbl + mass_pp);
+        const double p_alpha_cm_mag = std::sqrt(2.0 * reduced_mass_alpha_pp * T_avail);
         
-        amrex::ParticleReal px_alpha_cm, py_alpha_cm, pz_alpha_cm;
-        ParticleUtils::RandomizeVelocity(px_alpha_cm, py_alpha_cm, pz_alpha_cm, p_alpha_cm, engine);
+        amrex::ParticleReal px_alpha_cm_rt, py_alpha_cm_rt, pz_alpha_cm_rt;
+        ParticleUtils::RandomizeVelocity(px_alpha_cm_rt, py_alpha_cm_rt, pz_alpha_cm_rt, static_cast<amrex::ParticleReal>(p_alpha_cm_mag), engine);
+        const double px_alpha_cm = static_cast<double>(px_alpha_cm_rt);
+        const double py_alpha_cm = static_cast<double>(py_alpha_cm_rt);
+        const double pz_alpha_cm = static_cast<double>(pz_alpha_cm_rt);
+
+        // The 2-proton system momentum in total CM is exactly opposite to the alpha
+        const double px_pp_cm = -px_alpha_cm;
+        const double py_pp_cm = -py_alpha_cm;
+        const double pz_pp_cm = -pz_alpha_cm;
 
         // -------------------------------------------------------------------------
         // 3. Proton Kinematics in the 2-Proton CM Frame
-        const amrex::ParticleReal p_proton_star = std::sqrt(static_cast<amrex::ParticleReal>(m_proton) * E_pp);
+        const double p_proton_star_mag = std::sqrt(m_proton_dbl * E_pp);
         
-        amrex::ParticleReal px_p1_star, py_p1_star, pz_p1_star;
-        ParticleUtils::RandomizeVelocity(px_p1_star, py_p1_star, pz_p1_star, p_proton_star, engine);
+        amrex::ParticleReal px_p1_star_rt, py_p1_star_rt, pz_p1_star_rt;
+        ParticleUtils::RandomizeVelocity(px_p1_star_rt, py_p1_star_rt, pz_p1_star_rt, static_cast<amrex::ParticleReal>(p_proton_star_mag), engine);
+        const double px_p1_star = static_cast<double>(px_p1_star_rt);
+        const double py_p1_star = static_cast<double>(py_p1_star_rt);
+        const double pz_p1_star = static_cast<double>(pz_p1_star_rt);
 
-        // Proton 2 is back-to-back with Proton 1 in the 2-proton CM frame
-        const amrex::ParticleReal px_p2_star = -px_p1_star;
-        const amrex::ParticleReal py_p2_star = -py_p1_star;
-        const amrex::ParticleReal pz_p2_star = -pz_p1_star;
+        const double px_p2_star = -px_p1_star;
+        const double py_p2_star = -py_p1_star;
+        const double pz_p2_star = -pz_p1_star;
 
         // -------------------------------------------------------------------------
-        // 4. Boost Protons to the Total CM Frame
-        // The 2-proton system momentum in total CM is exactly opposite to the alpha
-        const amrex::ParticleReal px_pp_cm = -px_alpha_cm;
-        const amrex::ParticleReal py_pp_cm = -py_alpha_cm;
-        const amrex::ParticleReal pz_pp_cm = -pz_alpha_cm;
+        // 4. Boost Protons from PP CM Frame to the Total CM Frame
+        const double g_pp = std::sqrt(1.0 + (px_pp_cm*px_pp_cm + py_pp_cm*py_pp_cm + pz_pp_cm*pz_pp_cm)/(mass_pp*mass_pp*c2_dbl));
         
-        const amrex::ParticleReal mass_pp_sys = static_cast<amrex::ParticleReal>(2.0*m_proton) + E_pp*inv_c*inv_c;
-        const amrex::ParticleReal g_pp = std::sqrt(1.0_prt + (px_pp_cm*px_pp_cm + py_pp_cm*py_pp_cm + pz_pp_cm*pz_pp_cm)/(mass_pp_sys*mass_pp_sys*c2));
-        
-        const amrex::ParticleReal vx_pp = px_pp_cm / (g_pp * mass_pp_sys);
-        const amrex::ParticleReal vy_pp = py_pp_cm / (g_pp * mass_pp_sys);
-        const amrex::ParticleReal vz_pp = pz_pp_cm / (g_pp * mass_pp_sys);
-        const amrex::ParticleReal v_pp_sq = vx_pp*vx_pp + vy_pp*vy_pp + vz_pp*vz_pp;
+        const double vx_pp = px_pp_cm / (g_pp * mass_pp);
+        const double vy_pp = py_pp_cm / (g_pp * mass_pp);
+        const double vz_pp = pz_pp_cm / (g_pp * mass_pp);
+        const double v_pp_sq = vx_pp*vx_pp + vy_pp*vy_pp + vz_pp*vz_pp;
 
-        amrex::ParticleReal px_p1_cm, py_p1_cm, pz_p1_cm;
-        amrex::ParticleReal px_p2_cm, py_p2_cm, pz_p2_cm;
+        double px_p1_cm, py_p1_cm, pz_p1_cm;
+        double px_p2_cm, py_p2_cm, pz_p2_cm;
 
-        if (v_pp_sq > 0.0_prt) {
-            const amrex::ParticleReal v_dot_p1 = vx_pp*px_p1_star + vy_pp*py_p1_star + vz_pp*pz_p1_star;
-            const amrex::ParticleReal factor1 = (g_pp - 1.0_prt) / v_pp_sq * v_dot_p1 + static_cast<amrex::ParticleReal>(m_proton) * g_pp;
+        if (v_pp_sq > 1.0e-20) {
+            const double v_dot_p1 = vx_pp*px_p1_star + vy_pp*py_p1_star + vz_pp*pz_p1_star;
+            const double factor1 = (g_pp - 1.0) / v_pp_sq * v_dot_p1 + m_proton_dbl * g_pp;
             px_p1_cm = px_p1_star + vx_pp * factor1;
             py_p1_cm = py_p1_star + vy_pp * factor1;
             pz_p1_cm = pz_p1_star + vz_pp * factor1;
 
-            const amrex::ParticleReal v_dot_p2 = vx_pp*px_p2_star + vy_pp*py_p2_star + vz_pp*pz_p2_star;
-            const amrex::ParticleReal factor2 = (g_pp - 1.0_prt) / v_pp_sq * v_dot_p2 + static_cast<amrex::ParticleReal>(m_proton) * g_pp;
+            const double v_dot_p2 = vx_pp*px_p2_star + vy_pp*py_p2_star + vz_pp*pz_p2_star;
+            const double factor2 = (g_pp - 1.0) / v_pp_sq * v_dot_p2 + m_proton_dbl * g_pp;
             px_p2_cm = px_p2_star + vx_pp * factor2;
             py_p2_cm = py_p2_star + vy_pp * factor2;
             pz_p2_cm = pz_p2_star + vz_pp * factor2;
@@ -158,42 +162,53 @@ namespace {
 
         // -------------------------------------------------------------------------
         // 5. Boost all Products to the Lab Frame
-        const amrex::ParticleReal bx = px_lab_tot / E_lab_tot * c2;
-        const amrex::ParticleReal by = py_lab_tot / E_lab_tot * c2;
-        const amrex::ParticleReal bz = pz_lab_tot / E_lab_tot * c2;
-        const amrex::ParticleReal b_sq = bx*bx + by*by + bz*bz;
-        const amrex::ParticleReal g_lab = 1.0_prt / std::sqrt(1.0_prt - b_sq*inv_c*inv_c);
+        const double bx = px_lab_tot_dbl / E_lab_tot_dbl * c2_dbl;
+        const double by = py_lab_tot_dbl / E_lab_tot_dbl * c2_dbl;
+        const double bz = pz_lab_tot_dbl / E_lab_tot_dbl * c2_dbl;
+        const double b_sq = bx*bx + by*by + bz*bz;
+        const double g_lab = 1.0 / std::sqrt(1.0 - b_sq*inv_c_dbl*inv_c_dbl);
 
-        auto apply_boost = [=] (amrex::ParticleReal px_cm, amrex::ParticleReal py_cm, amrex::ParticleReal pz_cm, double mass, 
-                                amrex::ParticleReal& px_lab, amrex::ParticleReal& py_lab, amrex::ParticleReal& pz_lab) {
-            if (b_sq > 0.0_prt) {
-                const amrex::ParticleReal b_dot_p = bx*px_cm + by*py_cm + bz*pz_cm;
-                const amrex::ParticleReal E_cm = std::sqrt(static_cast<amrex::ParticleReal>(mass*mass)*c2*c2 + (px_cm*px_cm + py_cm*py_cm + pz_cm*pz_cm)*c2);
-                const amrex::ParticleReal factor = (g_lab - 1.0_prt) / b_sq * b_dot_p + g_lab * E_cm * inv_c * inv_c;
-                px_lab = px_cm + bx * factor;
-                py_lab = py_cm + by * factor;
-                pz_lab = pz_cm + bz * factor;
-            } else {
-                px_lab = px_cm; py_lab = py_cm; pz_lab = pz_cm;
-            }
-        };
+        double px_alpha, py_alpha, pz_alpha;
+        if (b_sq > 1.0e-20) {
+            const double b_dot_p = bx*px_alpha_cm + by*py_alpha_cm + bz*pz_alpha_cm;
+            const double E_cm = std::sqrt(m_alpha_dbl*m_alpha_dbl*c2_dbl*c2_dbl + (px_alpha_cm*px_alpha_cm + py_alpha_cm*py_alpha_cm + pz_alpha_cm*pz_alpha_cm)*c2_dbl);
+            const double factor = (g_lab - 1.0) / b_sq * b_dot_p + g_lab * E_cm * inv_c_dbl * inv_c_dbl;
+            px_alpha = px_alpha_cm + bx * factor;
+            py_alpha = py_alpha_cm + by * factor;
+            pz_alpha = pz_alpha_cm + bz * factor;
+        } else {
+            px_alpha = px_alpha_cm; py_alpha = py_alpha_cm; pz_alpha = pz_alpha_cm;
+        }
 
-        amrex::ParticleReal px_alpha, py_alpha, pz_alpha;
-        amrex::ParticleReal px_p1, py_p1, pz_p1;
-        amrex::ParticleReal px_p2, py_p2, pz_p2;
+        double px_p1, py_p1, pz_p1;
+        if (b_sq > 1.0e-20) {
+            const double b_dot_p = bx*px_p1_cm + by*py_p1_cm + bz*pz_p1_cm;
+            const double E_cm = std::sqrt(m_proton_dbl*m_proton_dbl*c2_dbl*c2_dbl + (px_p1_cm*px_p1_cm + py_p1_cm*py_p1_cm + pz_p1_cm*pz_p1_cm)*c2_dbl);
+            const double factor = (g_lab - 1.0) / b_sq * b_dot_p + g_lab * E_cm * inv_c_dbl * inv_c_dbl;
+            px_p1 = px_p1_cm + bx * factor;
+            py_p1 = py_p1_cm + by * factor;
+            pz_p1 = pz_p1_cm + bz * factor;
+        } else {
+            px_p1 = px_p1_cm; py_p1 = py_p1_cm; pz_p1 = pz_p1_cm;
+        }
 
-        apply_boost(px_alpha_cm, py_alpha_cm, pz_alpha_cm, m_alpha, px_alpha, py_alpha, pz_alpha);
-        apply_boost(px_p1_cm, py_p1_cm, pz_p1_cm, m_proton, px_p1, py_p1, pz_p1);
-        apply_boost(px_p2_cm, py_p2_cm, pz_p2_cm, m_proton, px_p2, py_p2, pz_p2);
+        double px_p2, py_p2, pz_p2;
+        if (b_sq > 1.0e-20) {
+            const double b_dot_p = bx*px_p2_cm + by*py_p2_cm + bz*pz_p2_cm;
+            const double E_cm = std::sqrt(m_proton_dbl*m_proton_dbl*c2_dbl*c2_dbl + (px_p2_cm*px_p2_cm + py_p2_cm*py_p2_cm + pz_p2_cm*pz_p2_cm)*c2_dbl);
+            const double factor = (g_lab - 1.0) / b_sq * b_dot_p + g_lab * E_cm * inv_c_dbl * inv_c_dbl;
+            px_p2 = px_p2_cm + bx * factor;
+            py_p2 = py_p2_cm + by * factor;
+            pz_p2 = pz_p2_cm + bz * factor;
+        } else {
+            px_p2 = px_p2_cm; py_p2 = py_p2_cm; pz_p2 = pz_p2_cm;
+        }
 
         // -------------------------------------------------------------------------
         // 6. Populate Output Containers (u = p / m)
-        // Note: For charge/weight conservation, we create 2 alphas and 4 protons 
-        // per reacting pair (1 alpha + 2 protons at position 1, 1 alpha + 2 protons at position 2).
-
-        const amrex::ParticleReal ux_alpha = px_alpha / static_cast<amrex::ParticleReal>(m_alpha);
-        const amrex::ParticleReal uy_alpha = py_alpha / static_cast<amrex::ParticleReal>(m_alpha);
-        const amrex::ParticleReal uz_alpha = pz_alpha / static_cast<amrex::ParticleReal>(m_alpha);
+        const amrex::ParticleReal ux_alpha = static_cast<amrex::ParticleReal>(px_alpha / m_alpha_dbl);
+        const amrex::ParticleReal uy_alpha = static_cast<amrex::ParticleReal>(py_alpha / m_alpha_dbl);
+        const amrex::ParticleReal uz_alpha = static_cast<amrex::ParticleReal>(pz_alpha / m_alpha_dbl);
 
         soa_alpha.m_rdata[PIdx::ux][idx_alpha_start]     = ux_alpha;
         soa_alpha.m_rdata[PIdx::uy][idx_alpha_start]     = uy_alpha;
@@ -202,13 +217,13 @@ namespace {
         soa_alpha.m_rdata[PIdx::uy][idx_alpha_start + 1] = uy_alpha;
         soa_alpha.m_rdata[PIdx::uz][idx_alpha_start + 1] = uz_alpha;
 
-        const amrex::ParticleReal ux_p1 = px_p1 / static_cast<amrex::ParticleReal>(m_proton);
-        const amrex::ParticleReal uy_p1 = py_p1 / static_cast<amrex::ParticleReal>(m_proton);
-        const amrex::ParticleReal uz_p1 = pz_p1 / static_cast<amrex::ParticleReal>(m_proton);
+        const amrex::ParticleReal ux_p1 = static_cast<amrex::ParticleReal>(px_p1 / m_proton_dbl);
+        const amrex::ParticleReal uy_p1 = static_cast<amrex::ParticleReal>(py_p1 / m_proton_dbl);
+        const amrex::ParticleReal uz_p1 = static_cast<amrex::ParticleReal>(pz_p1 / m_proton_dbl);
 
-        const amrex::ParticleReal ux_p2 = px_p2 / static_cast<amrex::ParticleReal>(m_proton);
-        const amrex::ParticleReal uy_p2 = py_p2 / static_cast<amrex::ParticleReal>(m_proton);
-        const amrex::ParticleReal uz_p2 = pz_p2 / static_cast<amrex::ParticleReal>(m_proton);
+        const amrex::ParticleReal ux_p2 = static_cast<amrex::ParticleReal>(px_p2 / m_proton_dbl);
+        const amrex::ParticleReal uy_p2 = static_cast<amrex::ParticleReal>(py_p2 / m_proton_dbl);
+        const amrex::ParticleReal uz_p2 = static_cast<amrex::ParticleReal>(pz_p2 / m_proton_dbl);
 
         soa_proton.m_rdata[PIdx::ux][idx_proton_start]     = ux_p1;
         soa_proton.m_rdata[PIdx::uy][idx_proton_start]     = uy_p1;
@@ -224,6 +239,5 @@ namespace {
         soa_proton.m_rdata[PIdx::uy][idx_proton_start + 3] = uy_p2;
         soa_proton.m_rdata[PIdx::uz][idx_proton_start + 3] = uz_p2;
     }
-}
 
 #endif // WARPX_HELIUM_HELIUM_FUSION_INITIALIZE_MOMENTUM_H
