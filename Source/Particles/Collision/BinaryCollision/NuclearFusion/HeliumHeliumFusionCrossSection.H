@@ -59,8 +59,9 @@ amrex::ParticleReal HeliumHeliumFusionCrossSectionHighEnergy (const amrex::Parti
  * \brief Computes the He3-He3 fusion cross section for low energies 
  * using the Solar Fusion III recommendation.
  */
+
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-amrex::ParticleReal HeliumHeliumFusionCrossSectionSFIII (const amrex::ParticleReal& E_MeV)
+amrex::ParticleReal He3He3FusionCrossSectionSFIII (const amrex::ParticleReal& E_MeV)
 {
     using namespace amrex::literals;
 
@@ -69,12 +70,12 @@ amrex::ParticleReal HeliumHeliumFusionCrossSectionSFIII (const amrex::ParticleRe
 
     // Sommerfeld parameter calculation (Z1=2, Z2=2)
     constexpr double m_He3 = 3.0160293_prt * PhysConst::m_u - 2.0_prt * PhysConst::m_e;
-    
+
     // Explicitly define the fine structure constant
     constexpr amrex::ParticleReal alpha = 1.0_prt / 137.035999_prt;
     
     constexpr amrex::ParticleReal factor = 4.0_prt * MathConst::pi * alpha *
-        std::sqrt(0.5_prt * static_cast<amrex::ParticleReal>(m_He3) * PhysConst::c * PhysConst::c / (1.e6_prt * PhysConst::q_e));
+        std::sqrt(static_cast<amrex::ParticleReal>(m_He3) * PhysConst::c * PhysConst::c / (1.e6_prt * PhysConst::q_e));
     
     const amrex::ParticleReal two_pi_eta = factor / std::sqrt(E_MeV);
 
