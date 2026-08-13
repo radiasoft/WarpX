@@ -61,7 +61,7 @@ amrex::ParticleReal HeliumHeliumFusionCrossSectionHighEnergy (const amrex::Parti
  */
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-amrex::ParticleReal He3He3FusionCrossSectionSFIII (const amrex::ParticleReal& E_MeV)
+amrex::ParticleReal HeliumHeliumFusionCrossSectionSFIII (const amrex::ParticleReal& E_MeV)
 {
     using namespace amrex::literals;
 
