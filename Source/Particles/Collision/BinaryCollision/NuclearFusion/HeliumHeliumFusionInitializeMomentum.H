@@ -43,7 +43,7 @@ namespace {
      * @param[in] engine the random engine
      */
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    void He3He3FusionInitializeMomentum (
+    void HeliumHeliumFusionInitializeMomentum (
                             const SoaData_type& soa_1, const SoaData_type& soa_2,
                             SoaData_type& soa_alpha, SoaData_type& soa_proton,
                             const index_type& idx_1, const index_type& idx_2,
