@@ -69,7 +69,11 @@ amrex::ParticleReal HeliumHeliumFusionCrossSectionSFIII (const amrex::ParticleRe
 
     // Sommerfeld parameter calculation (Z1=2, Z2=2)
     constexpr double m_He3 = 3.0160293_prt * PhysConst::m_u - 2.0_prt * PhysConst::m_e;
-    constexpr amrex::ParticleReal factor = 4.0_prt * PhysConst::pi * PhysConst::fine_structure *
+    
+    // Explicitly define the fine structure constant
+    constexpr amrex::ParticleReal alpha = 1.0_prt / 137.035999_prt;
+    
+    constexpr amrex::ParticleReal factor = 4.0_prt * PhysConst::pi * alpha *
         std::sqrt(0.5_prt * static_cast<amrex::ParticleReal>(m_He3) * PhysConst::c * PhysConst::c / (1.e6_prt * PhysConst::q_e));
     
     const amrex::ParticleReal two_pi_eta = factor / std::sqrt(E_MeV);
