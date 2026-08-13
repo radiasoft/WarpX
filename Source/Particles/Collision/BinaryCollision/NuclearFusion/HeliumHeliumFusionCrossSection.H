@@ -4,6 +4,7 @@
 #include "Utils/WarpXConst.H"
 #include <AMReX_Math.H>
 #include <AMReX_REAL.H>
+#include <cmath>
 
 
 /**
@@ -52,6 +53,29 @@ amrex::ParticleReal HeliumHeliumFusionCrossSectionHighEnergy (const amrex::Parti
 
     const amrex::ParticleReal slope = (sig1 - sig0) / (E1 - E0);
     return sig0 + slope * (E_MeV - E0);
+}
+
+/**
+ * \brief Computes the He3-He3 fusion cross section for low energies 
+ * using the Solar Fusion III recommendation.
+ */
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+amrex::ParticleReal HeliumHeliumFusionCrossSectionSFIII (const amrex::ParticleReal& E_MeV)
+{
+    using namespace amrex::literals;
+
+    // SF III S-factor in MeV b
+    const amrex::ParticleReal S33 = 5.21_prt - 4.90_prt * E_MeV + 11.21_prt * E_MeV * E_MeV;
+
+    // Sommerfeld parameter calculation (Z1=2, Z2=2)
+    constexpr double m_He3 = 3.0160293_prt * PhysConst::m_u - 2.0_prt * PhysConst::m_e;
+    constexpr amrex::ParticleReal factor = 4.0_prt * PhysConst::pi * PhysConst::fine_structure *
+        std::sqrt(0.5_prt * static_cast<amrex::ParticleReal>(m_He3) * PhysConst::c * PhysConst::c / (1.e6_prt * PhysConst::q_e));
+    
+    const amrex::ParticleReal two_pi_eta = factor / std::sqrt(E_MeV);
+
+    // Return cross section in barn
+    return (S33 / E_MeV) * std::exp(-two_pi_eta);
 }
 
 /**
