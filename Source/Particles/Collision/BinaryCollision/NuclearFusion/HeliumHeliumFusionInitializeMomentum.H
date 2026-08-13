@@ -52,6 +52,8 @@ namespace {
                             const amrex::ParticleReal& m1, const amrex::ParticleReal& m2,
                             const amrex::RandomEngine& engine)
     {
+        using namespace amrex::literals;
+        
         // Enforce double precision for all kinematic calculations to prevent catastrophic cancellation
         constexpr double c2_dbl = PhysConst::c * PhysConst::c;
         constexpr double inv_c_dbl = 1.0 / PhysConst::c;
