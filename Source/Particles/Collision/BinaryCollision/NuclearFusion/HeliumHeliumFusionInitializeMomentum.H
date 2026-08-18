@@ -54,7 +54,7 @@ namespace {
     {
         using namespace amrex::literals;
         
-        // Enforce double precision for all kinematic calculations to prevent catastrophic cancellation
+        // Enforce double precision for all kinematic calculations
         constexpr double c2_dbl = PhysConst::c * PhysConst::c;
         constexpr double inv_c_dbl = 1.0 / PhysConst::c;
 
@@ -83,9 +83,7 @@ namespace {
         const double p_lab_tot_sq_dbl = px_lab_tot_dbl*px_lab_tot_dbl + py_lab_tot_dbl*py_lab_tot_dbl + pz_lab_tot_dbl*pz_lab_tot_dbl;
 
         // Invariant mass of the system
-        const double M_inv_dbl = std::sqrt(E_lab_tot_dbl*E_lab_tot_dbl*inv_c_dbl*inv_c_dbl - p_lab_tot_sq_dbl) * inv_c_dbl;
-
-        // Total kinetic energy available for the products in the CM frame
+        const double M_inv_dbl = std::sqrt(std::max(0.0, E_lab_tot_dbl*E_lab_tot_dbl*inv_c_dbl*inv_c_dbl - p_lab_tot_sq_dbl)) * inv_c_dbl;
         const double Q_tot_dbl = (M_inv_dbl - (m_alpha_dbl + 2.0*m_proton_dbl)) * c2_dbl;
 
         // -------------------------------------------------------------------------
@@ -97,16 +95,16 @@ namespace {
         } while (y_rnd > std::sqrt(x_rnd * (1.0_prt - x_rnd)));
         
         const double x = static_cast<double>(x_rnd);
-        const double E_pp = x * Q_tot_dbl; // CM kinetic energy of the 2-proton system
-        const double T_avail = Q_tot_dbl - E_pp; // Kinetic energy for alpha + pp_sys recoil
+        const double E_pp_kin = x * Q_tot_dbl; // CM kinetic energy of the 2-proton system
 
-        // Mass of the 2-proton system
-        const double mass_pp = 2.0*m_proton_dbl + E_pp*inv_c_dbl*inv_c_dbl;
+        // Exact relativistic mass of the 2-proton system
+        const double mass_pp = 2.0*m_proton_dbl + E_pp_kin*inv_c_dbl*inv_c_dbl;
 
         // -------------------------------------------------------------------------
-        // 2. Alpha Particle and PP System Kinematics in the Total CM Frame
-        const double reduced_mass_alpha_pp = m_alpha_dbl * mass_pp / (m_alpha_dbl + mass_pp);
-        const double p_alpha_cm_mag = std::sqrt(2.0 * reduced_mass_alpha_pp * T_avail);
+        // 2. Exact Relativistic 2-Body Decay in Total CM Frame
+        const double E_alpha_cm = (M_inv_dbl*M_inv_dbl*c2_dbl*c2_dbl + m_alpha_dbl*m_alpha_dbl*c2_dbl*c2_dbl - mass_pp*mass_pp*c2_dbl*c2_dbl) / (2.0 * M_inv_dbl * c2_dbl);
+        const double p_alpha_cm_sq = std::max(0.0, E_alpha_cm*E_alpha_cm*inv_c_dbl*inv_c_dbl - m_alpha_dbl*m_alpha_dbl*c2_dbl);
+        const double p_alpha_cm_mag = std::sqrt(p_alpha_cm_sq);
         
         amrex::ParticleReal px_alpha_cm_rt, py_alpha_cm_rt, pz_alpha_cm_rt;
         ParticleUtils::RandomizeVelocity(px_alpha_cm_rt, py_alpha_cm_rt, pz_alpha_cm_rt, static_cast<amrex::ParticleReal>(p_alpha_cm_mag), engine);
@@ -114,14 +112,15 @@ namespace {
         const double py_alpha_cm = static_cast<double>(py_alpha_cm_rt);
         const double pz_alpha_cm = static_cast<double>(pz_alpha_cm_rt);
 
-        // The 2-proton system momentum in total CM is exactly opposite to the alpha
         const double px_pp_cm = -px_alpha_cm;
         const double py_pp_cm = -py_alpha_cm;
         const double pz_pp_cm = -pz_alpha_cm;
 
         // -------------------------------------------------------------------------
-        // 3. Proton Kinematics in the 2-Proton CM Frame
-        const double p_proton_star_mag = std::sqrt(m_proton_dbl * E_pp);
+        // 3. Exact Relativistic Proton Kinematics in the 2-Proton CM Frame
+        const double E_p1_star = mass_pp * c2_dbl / 2.0;
+        const double p_proton_star_sq = std::max(0.0, E_p1_star*E_p1_star*inv_c_dbl*inv_c_dbl - m_proton_dbl*m_proton_dbl*c2_dbl);
+        const double p_proton_star_mag = std::sqrt(p_proton_star_sq);
         
         amrex::ParticleReal px_p1_star_rt, py_p1_star_rt, pz_p1_star_rt;
         ParticleUtils::RandomizeVelocity(px_p1_star_rt, py_p1_star_rt, pz_p1_star_rt, static_cast<amrex::ParticleReal>(p_proton_star_mag), engine);
@@ -135,11 +134,11 @@ namespace {
 
         // -------------------------------------------------------------------------
         // 4. Boost Protons from PP CM Frame to the Total CM Frame
-        const double g_pp = std::sqrt(1.0 + (px_pp_cm*px_pp_cm + py_pp_cm*py_pp_cm + pz_pp_cm*pz_pp_cm)/(mass_pp*mass_pp*c2_dbl));
-        
-        const double vx_pp = px_pp_cm / (g_pp * mass_pp);
-        const double vy_pp = py_pp_cm / (g_pp * mass_pp);
-        const double vz_pp = pz_pp_cm / (g_pp * mass_pp);
+        const double E_pp_cm = std::sqrt(mass_pp*mass_pp*c2_dbl*c2_dbl + (px_pp_cm*px_pp_cm + py_pp_cm*py_pp_cm + pz_pp_cm*pz_pp_cm)*c2_dbl);
+        const double g_pp = E_pp_cm / (mass_pp * c2_dbl);
+        const double vx_pp = px_pp_cm * c2_dbl / E_pp_cm;
+        const double vy_pp = py_pp_cm * c2_dbl / E_pp_cm;
+        const double vz_pp = pz_pp_cm * c2_dbl / E_pp_cm;
         const double v_pp_sq = vx_pp*vx_pp + vy_pp*vy_pp + vz_pp*vz_pp;
 
         double px_p1_cm, py_p1_cm, pz_p1_cm;
@@ -147,13 +146,13 @@ namespace {
 
         if (v_pp_sq > 1.0e-20) {
             const double v_dot_p1 = vx_pp*px_p1_star + vy_pp*py_p1_star + vz_pp*pz_p1_star;
-            const double factor1 = (g_pp - 1.0) / v_pp_sq * v_dot_p1 + m_proton_dbl * g_pp;
+            const double factor1 = (g_pp - 1.0) / v_pp_sq * v_dot_p1 + g_pp * E_p1_star * inv_c_dbl * inv_c_dbl;
             px_p1_cm = px_p1_star + vx_pp * factor1;
             py_p1_cm = py_p1_star + vy_pp * factor1;
             pz_p1_cm = pz_p1_star + vz_pp * factor1;
 
             const double v_dot_p2 = vx_pp*px_p2_star + vy_pp*py_p2_star + vz_pp*pz_p2_star;
-            const double factor2 = (g_pp - 1.0) / v_pp_sq * v_dot_p2 + m_proton_dbl * g_pp;
+            const double factor2 = (g_pp - 1.0) / v_pp_sq * v_dot_p2 + g_pp * E_p1_star * inv_c_dbl * inv_c_dbl;
             px_p2_cm = px_p2_star + vx_pp * factor2;
             py_p2_cm = py_p2_star + vy_pp * factor2;
             pz_p2_cm = pz_p2_star + vz_pp * factor2;
@@ -164,17 +163,16 @@ namespace {
 
         // -------------------------------------------------------------------------
         // 5. Boost all Products to the Lab Frame
-        const double bx = px_lab_tot_dbl / E_lab_tot_dbl * c2_dbl;
-        const double by = py_lab_tot_dbl / E_lab_tot_dbl * c2_dbl;
-        const double bz = pz_lab_tot_dbl / E_lab_tot_dbl * c2_dbl;
+        const double bx = px_lab_tot_dbl * c2_dbl / E_lab_tot_dbl;
+        const double by = py_lab_tot_dbl * c2_dbl / E_lab_tot_dbl;
+        const double bz = pz_lab_tot_dbl * c2_dbl / E_lab_tot_dbl;
         const double b_sq = bx*bx + by*by + bz*bz;
-        const double g_lab = 1.0 / std::sqrt(1.0 - b_sq*inv_c_dbl*inv_c_dbl);
+        const double g_lab = E_lab_tot_dbl / (M_inv_dbl * c2_dbl);
 
         double px_alpha, py_alpha, pz_alpha;
         if (b_sq > 1.0e-20) {
             const double b_dot_p = bx*px_alpha_cm + by*py_alpha_cm + bz*pz_alpha_cm;
-            const double E_cm = std::sqrt(m_alpha_dbl*m_alpha_dbl*c2_dbl*c2_dbl + (px_alpha_cm*px_alpha_cm + py_alpha_cm*py_alpha_cm + pz_alpha_cm*pz_alpha_cm)*c2_dbl);
-            const double factor = (g_lab - 1.0) / b_sq * b_dot_p + g_lab * E_cm * inv_c_dbl * inv_c_dbl;
+            const double factor = (g_lab - 1.0) / b_sq * b_dot_p + g_lab * E_alpha_cm * inv_c_dbl * inv_c_dbl;
             px_alpha = px_alpha_cm + bx * factor;
             py_alpha = py_alpha_cm + by * factor;
             pz_alpha = pz_alpha_cm + bz * factor;
@@ -185,8 +183,8 @@ namespace {
         double px_p1, py_p1, pz_p1;
         if (b_sq > 1.0e-20) {
             const double b_dot_p = bx*px_p1_cm + by*py_p1_cm + bz*pz_p1_cm;
-            const double E_cm = std::sqrt(m_proton_dbl*m_proton_dbl*c2_dbl*c2_dbl + (px_p1_cm*px_p1_cm + py_p1_cm*py_p1_cm + pz_p1_cm*pz_p1_cm)*c2_dbl);
-            const double factor = (g_lab - 1.0) / b_sq * b_dot_p + g_lab * E_cm * inv_c_dbl * inv_c_dbl;
+            const double E_p1_cm = std::sqrt(m_proton_dbl*m_proton_dbl*c2_dbl*c2_dbl + (px_p1_cm*px_p1_cm + py_p1_cm*py_p1_cm + pz_p1_cm*pz_p1_cm)*c2_dbl);
+            const double factor = (g_lab - 1.0) / b_sq * b_dot_p + g_lab * E_p1_cm * inv_c_dbl * inv_c_dbl;
             px_p1 = px_p1_cm + bx * factor;
             py_p1 = py_p1_cm + by * factor;
             pz_p1 = pz_p1_cm + bz * factor;
@@ -197,8 +195,8 @@ namespace {
         double px_p2, py_p2, pz_p2;
         if (b_sq > 1.0e-20) {
             const double b_dot_p = bx*px_p2_cm + by*py_p2_cm + bz*pz_p2_cm;
-            const double E_cm = std::sqrt(m_proton_dbl*m_proton_dbl*c2_dbl*c2_dbl + (px_p2_cm*px_p2_cm + py_p2_cm*py_p2_cm + pz_p2_cm*pz_p2_cm)*c2_dbl);
-            const double factor = (g_lab - 1.0) / b_sq * b_dot_p + g_lab * E_cm * inv_c_dbl * inv_c_dbl;
+            const double E_p2_cm = std::sqrt(m_proton_dbl*m_proton_dbl*c2_dbl*c2_dbl + (px_p2_cm*px_p2_cm + py_p2_cm*py_p2_cm + pz_p2_cm*pz_p2_cm)*c2_dbl);
+            const double factor = (g_lab - 1.0) / b_sq * b_dot_p + g_lab * E_p2_cm * inv_c_dbl * inv_c_dbl;
             px_p2 = px_p2_cm + bx * factor;
             py_p2 = py_p2_cm + by * factor;
             pz_p2 = pz_p2_cm + bz * factor;
@@ -212,9 +210,9 @@ namespace {
         const amrex::ParticleReal uy_alpha = static_cast<amrex::ParticleReal>(py_alpha / m_alpha_dbl);
         const amrex::ParticleReal uz_alpha = static_cast<amrex::ParticleReal>(pz_alpha / m_alpha_dbl);
 
-        soa_alpha.m_rdata[PIdx::ux][idx_alpha_start]     = ux_alpha;
-        soa_alpha.m_rdata[PIdx::uy][idx_alpha_start]     = uy_alpha;
-        soa_alpha.m_rdata[PIdx::uz][idx_alpha_start]     = uz_alpha;
+        soa_alpha.m_rdata[PIdx::ux][idx_alpha_start] = ux_alpha;
+        soa_alpha.m_rdata[PIdx::uy][idx_alpha_start] = uy_alpha;
+        soa_alpha.m_rdata[PIdx::uz][idx_alpha_start] = uz_alpha;
         soa_alpha.m_rdata[PIdx::ux][idx_alpha_start + 1] = ux_alpha;
         soa_alpha.m_rdata[PIdx::uy][idx_alpha_start + 1] = uy_alpha;
         soa_alpha.m_rdata[PIdx::uz][idx_alpha_start + 1] = uz_alpha;
