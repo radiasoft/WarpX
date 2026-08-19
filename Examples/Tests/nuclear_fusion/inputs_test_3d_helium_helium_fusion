@@ -1,0 +1,179 @@
+#################################
+####### GENERAL PARAMETERS ######
+#################################
+## With these parameters, each cell has a size of exactly 1 by 1 by 1
+max_step = 1
+amr.n_cell = 8 8 16
+amr.max_grid_size = 8
+amr.blocking_factor = 8
+amr.max_level = 0
+geometry.dims = 3
+geometry.prob_lo     = 0.    0.    0.
+geometry.prob_hi     = 8.    8.   16.
+
+#################################
+###### Boundary Condition #######
+#################################
+boundary.field_lo = periodic periodic periodic
+boundary.field_hi = periodic periodic periodic
+
+#################################
+############ NUMERICS ###########
+#################################
+warpx.verbose = 1
+warpx.cfl = 1.0
+
+# Order of particle shape factors
+algo.particle_shape = 1
+
+#################################
+############ PLASMA #############
+#################################
+# Define three testing pairs with their respective 2-species products
+particles.species_names = He3_1a He3_1b alpha1 proton1 \
+                          He3_2a He3_2b alpha2 proton2 \
+                          He3_3a He3_3b alpha3 proton3
+
+# Define masses and energy steps
+my_constants.m_He3 = 3.0160293*m_u - 2*m_e
+my_constants.m_reduced = m_He3 / 2.0
+my_constants.keV_to_J = 1.e3*q_e
+# Set energy step to 100 keV so the top of the grid (z=15) reaches 1.5 MeV lab (750 keV CM), 
+# successfully crossing the 400 keV piecewise transition boundary.
+my_constants.Energy_step = 100. * keV_to_J
+
+# =========================================================
+# TEST 1: Head-on collision with increasing energy per cell
+# =========================================================
+He3_1a.species_type = helium3
+He3_1a.injection_style = "NRandomPerCell"
+He3_1a.num_particles_per_cell = 10000
+He3_1a.profile = constant
+He3_1a.density = 1.
+He3_1a.momentum_distribution_type = "parse_momentum_function"
+He3_1a.momentum_function_ux(x,y,z) = 0.
+He3_1a.momentum_function_uy(x,y,z) = 0.
+He3_1a.momentum_function_uz(x,y,z) = sqrt(2*m_reduced*Energy_step*(floor(z)**2))/(m_He3*clight)
+He3_1a.do_not_push = 1
+He3_1a.do_not_deposit = 1
+
+He3_1b.species_type = helium3
+He3_1b.injection_style = "NRandomPerCell"
+He3_1b.num_particles_per_cell = 10000
+He3_1b.profile = constant
+He3_1b.density = 1.
+He3_1b.momentum_distribution_type = "parse_momentum_function"
+He3_1b.momentum_function_ux(x,y,z) = 0.
+He3_1b.momentum_function_uy(x,y,z) = 0.
+He3_1b.momentum_function_uz(x,y,z) = -sqrt(2*m_reduced*Energy_step*(floor(z)**2))/(m_He3*clight)
+He3_1b.do_not_push = 1
+He3_1b.do_not_deposit = 1
+
+alpha1.species_type = helium4
+alpha1.do_not_push = 1
+alpha1.do_not_deposit = 1
+
+proton1.species_type = hydrogen1
+proton1.do_not_push = 1
+proton1.do_not_deposit = 1
+
+# =========================================================
+# TEST 2: Beam-Target Collision
+# =========================================================
+my_constants.background_dens = 1.e26
+my_constants.beam_dens = 1.e20
+
+He3_2a.species_type = helium3
+He3_2a.injection_style = "NRandomPerCell"
+He3_2a.num_particles_per_cell = 1000
+He3_2a.profile = "parse_density_function"
+He3_2a.density_function(x,y,z) = if(y - floor(y) < 0.1, 10.*background_dens, 10./9.*beam_dens)
+He3_2a.momentum_distribution_type = "parse_momentum_function"
+He3_2a.momentum_function_ux(x,y,z) = 0.
+He3_2a.momentum_function_uy(x,y,z) = 0.
+He3_2a.momentum_function_uz(x,y,z) = "if(y - floor(y) < 0.1, 0., sqrt(2*m_He3*Energy_step*(floor(z)**2))/(m_He3*clight))"
+He3_2a.do_not_push = 1
+He3_2a.do_not_deposit = 1
+
+He3_2b.species_type = helium3
+He3_2b.injection_style = "NRandomPerCell"
+He3_2b.num_particles_per_cell = 100
+He3_2b.profile = constant
+He3_2b.density = background_dens
+He3_2b.momentum_distribution_type = "constant"
+He3_2b.do_not_push = 1
+He3_2b.do_not_deposit = 1
+
+alpha2.species_type = helium4
+alpha2.do_not_push = 1
+alpha2.do_not_deposit = 1
+
+proton2.species_type = hydrogen1
+proton2.do_not_push = 1
+proton2.do_not_deposit = 1
+
+# =========================================================
+# TEST 3: Thermal Maxwellian Distribution
+# =========================================================
+my_constants.temperature = 100. * keV_to_J
+
+He3_3a.species_type = helium3
+He3_3a.injection_style = "NRandomPerCell"
+He3_3a.num_particles_per_cell = 600
+He3_3a.profile = constant
+He3_3a.density = 1.e28
+He3_3a.momentum_distribution_type = "maxwellian"
+He3_3a.maxwellian_u_std_distribution_type = "constant"
+He3_3a.ux_std = sqrt(temperature/(m_He3*clight**2))
+He3_3a.uy_std = sqrt(temperature/(m_He3*clight**2))
+He3_3a.uz_std = sqrt(temperature/(m_He3*clight**2))
+He3_3a.do_not_push = 1
+He3_3a.do_not_deposit = 1
+
+He3_3b.species_type = helium3
+He3_3b.injection_style = "NRandomPerCell"
+He3_3b.num_particles_per_cell = 1000
+He3_3b.profile = constant
+He3_3b.density = 5.e28
+He3_3b.momentum_distribution_type = "maxwellian"
+He3_3b.maxwellian_u_std_distribution_type = "constant"
+He3_3b.ux_std = sqrt(temperature/(m_He3*clight**2))
+He3_3b.uy_std = sqrt(temperature/(m_He3*clight**2))
+He3_3b.uz_std = sqrt(temperature/(m_He3*clight**2))
+He3_3b.do_not_push = 1
+He3_3b.do_not_deposit = 1
+
+alpha3.species_type = helium4
+alpha3.do_not_push = 1
+alpha3.do_not_deposit = 1
+
+proton3.species_type = hydrogen1
+proton3.do_not_push = 1
+proton3.do_not_deposit = 1
+
+#################################
+############ COLLISION ##########
+#################################
+collisions.collision_names = He3He3_1 He3He3_2 He3He3_3
+
+He3He3_1.species = He3_1a He3_1b
+He3He3_1.product_species = alpha1 proton1
+He3He3_1.type = nuclearfusion
+He3He3_1.event_multiplier = 1.e50
+
+He3He3_2.species = He3_2a He3_2b
+He3He3_2.product_species = alpha2 proton2
+He3He3_2.type = nuclearfusion
+He3He3_2.event_multiplier = 1.e15
+He3He3_2.probability_target_value = 0.02
+
+He3He3_3.species = He3_3a He3_3b
+He3He3_3.product_species = alpha3 proton3
+He3He3_3.type = nuclearfusion
+He3He3_3.event_multiplier = 1.e15
+
+# Diagnostics
+diagnostics.diags_names = diag1
+diag1.intervals = 1
+diag1.diag_type = Full
+diag1.fields_to_plot = rho
