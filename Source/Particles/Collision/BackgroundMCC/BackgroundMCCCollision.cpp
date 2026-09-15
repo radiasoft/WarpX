@@ -29,11 +29,17 @@
 BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_name)
     : CollisionBase(collision_name)
 {
-    // Not sure if I can comment this out, but will have to for now
     // WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_species_names.size() == 1,
     //                                  "Background MCC must have exactly one species.");
 
     const amrex::ParmParse pp_collision_name(collision_name);
+
+    std::string ionization_kinematics = "equal_energy";
+        pp_collision_name.query("ionization_kinematics", ionization_kinematics);
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            ionization_kinematics == "equal_energy" || ionization_kinematics == "oopic",
+            collision_name + ".ionization_kinematics must be either equal_energy or oopic");
+        m_use_oopic_ionization_kinematics = (ionization_kinematics == "oopic");
 
     amrex::ParticleReal background_density = 0;
     if (utils::parser::queryWithParser(pp_collision_name, "background_density", background_density)) {
@@ -472,9 +478,10 @@ void BackgroundMCCCollision::doBackgroundIonization
         const auto np_ion = ion_tile.numParticles();
 
         auto Transform = ImpactIonizationTransformFunc(
-                                                       m_ionization_processes[0].getEnergyPenalty(),
-                                                       m_mass1, sqrt_kb_m, m_background_temperature_func, t
-                                                       );
+                                                        m_ionization_processes[0].getEnergyPenalty(),
+                                                        m_mass1, sqrt_kb_m, m_background_temperature_func, t,
+                                                        m_use_oopic_ionization_kinematics // Revised for OOPIC kinematics
+                                                        );
 
         const auto num_added = filterCopyTransformParticles<1>(elec_species, ion_species,
                                                                elec_tile, ion_tile, incident_tile, np_elec, np_ion,
