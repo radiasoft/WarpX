@@ -1,10 +1,10 @@
 /*
- * Electron-impact-ionization final-state sampling adapted from XOOPIC's
+ * Electron-impact-ionization final-state sampling adapted from Rudds
  * relativistic MCC model (MCCPackage::ejectedEnergy,
  * MCCPackage::primarySecondaryAngles, and MCCPackage::newMomentum).
  */
-#ifndef WARPX_PARTICLES_COLLISION_OOPIC_IMPACT_IONIZATION_H_
-#define WARPX_PARTICLES_COLLISION_OOPIC_IMPACT_IONIZATION_H_
+#ifndef WARPX_PARTICLES_COLLISION_RUDD_IMPACT_IONIZATION_H_
+#define WARPX_PARTICLES_COLLISION_RUDD_IMPACT_IONIZATION_H_
 
 #include "Utils/WarpXConst.H"
 
@@ -15,14 +15,14 @@
 
 #include <cmath>
 
-namespace OOPICImpactIonization
+namespace RuddImpactIonization
 {
     using namespace amrex::literals;
 
     /** Sample the kinetic energy (eV) of the newly freed electron.
      *
-     * This is the rejection sampler used by XOOPIC's relativistic MCC path,
-     * based on its relativistic extension of the Rudd singly differential
+     * This is the rejection sampler, required to employ
+     * relativistic extension of the Rudd singly differential
      * ionization cross section.
      */
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -104,7 +104,7 @@ namespace OOPICImpactIonization
         return std::acos(amrex::max(-1.0_prt, amrex::min(1.0_prt, argument)));
     }
 
-    /** Sample OOPIC's correlated primary/secondary scattering angles. */
+    /** Sample Rudd's correlated primary/secondary scattering angles. */
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void sampleAngles (
         amrex::ParticleReal const impact_energy_ev,
@@ -140,8 +140,7 @@ namespace OOPICImpactIonization
     /** Set proper velocity u=gamma*v at the requested energy and angles.
      *
      * Angles are measured relative to the incoming proper-velocity vector.
-     * A full orthonormal basis is used here, fixing XOOPIC's loss of the sign
-     * of the incoming y component in MCCPackage::newMomentum.
+     * A full orthonormal basis is used here
      */
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void setMomentum (

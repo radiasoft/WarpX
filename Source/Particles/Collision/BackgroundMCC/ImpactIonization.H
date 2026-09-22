@@ -8,7 +8,7 @@
 #define WARPX_PARTICLES_COLLISION_IMPACT_IONIZATION_H_
 
 #include "Particles/Collision/ScatteringProcess.H"
-#include "OOPICImpactIonization.H"
+#include "RuddImpactIonization.H"
 
 #include "Particles/Algorithms/KineticEnergy.H"
 #include "Utils/ParticleUtils.H"
@@ -153,10 +153,10 @@ public:
     ImpactIonizationTransformFunc(
         amrex::ParticleReal energy_cost, double mass1, amrex::ParticleReal sqrt_kb_m,
         amrex::ParserExecutor<4> const& T_a_func, amrex::Real t,
-        bool use_oopic_kinematics // Add this parameter
+        bool use_rudd_kinematics // Add this parameter
     ) :  m_energy_cost(energy_cost), m_mass1(mass1),
          m_sqrt_kb_m(sqrt_kb_m), m_T_a_func(T_a_func), m_t(t),
-         m_use_oopic_kinematics(use_oopic_kinematics) { } // Revised for OOPIC kinematics
+         m_use_rudd_kinematics(use_rudd_kinematics) { } // Revised for Rudd kinematics
 
     /**
     * \brief Functor call. It determines the properties of the generated pair
@@ -211,18 +211,18 @@ public:
         constexpr auto eV = PhysConst::q_e;
         E_coll = Algorithms::KineticEnergy<double>(ux, uy, uz, m_mass1)/eV;
 
-        if (m_use_oopic_kinematics) {
+        if (m_use_rudd_kinematics) {
             const auto impact_energy_ev = static_cast<amrex::ParticleReal>(E_coll);
             const auto electron_rest_energy_ev = static_cast<amrex::ParticleReal>(
                 m_mass1*PhysConst::c2/eV);
-            const auto secondary_energy_ev = OOPICImpactIonization::sampleSecondaryEnergy(
+            const auto secondary_energy_ev = RuddImpactIonization::sampleSecondaryEnergy(
                 impact_energy_ev, m_energy_cost, electron_rest_energy_ev, engine);
             const auto primary_energy_ev = amrex::max(
                 impact_energy_ev-m_energy_cost-secondary_energy_ev, 0.0_prt);
 
             amrex::ParticleReal theta_primary, phi_primary;
             amrex::ParticleReal theta_secondary, phi_secondary;
-            OOPICImpactIonization::sampleAngles(
+            RuddImpactIonization::sampleAngles(
                 impact_energy_ev, secondary_energy_ev, m_energy_cost,
                 electron_rest_energy_ev, theta_primary, phi_primary,
                 theta_secondary, phi_secondary, engine);
@@ -231,10 +231,10 @@ public:
             const auto ux_in = ux;
             const auto uy_in = uy;
             const auto uz_in = uz;
-            OOPICImpactIonization::setMomentum(
+            RuddImpactIonization::setMomentum(
                 ux_in, uy_in, uz_in, primary_energy_ev, electron_rest_energy_ev,
                 theta_primary, phi_primary, ux, uy, uz);
-            OOPICImpactIonization::setMomentum(
+            RuddImpactIonization::setMomentum(
                 ux_in, uy_in, uz_in, secondary_energy_ev, electron_rest_energy_ev,
                 theta_secondary, phi_secondary, e_ux, e_uy, e_uz);
         } else {
@@ -300,7 +300,7 @@ private:
     amrex::ParticleReal m_sqrt_kb_m;
     amrex::ParserExecutor<4> m_T_a_func;
     amrex::Real m_t;
-    bool m_use_oopic_kinematics; // Support for OOPIC kinematics
+    bool m_use_rudd_kinematics; // Support for Rudd kinematics
 };
 
 #endif // WARPX_PARTICLES_COLLISION_IMPACT_IONIZATION_H_

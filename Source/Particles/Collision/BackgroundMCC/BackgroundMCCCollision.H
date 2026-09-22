@@ -78,7 +78,7 @@ private:
 
     bool init_flag = false;
     bool ionization_flag = false;
-    bool m_use_oopic_ionization_kinematics = false;
+    bool m_use_rudd_ionization_kinematics = false;
 
     amrex::ParticleReal m_mass1;
 

@@ -37,9 +37,9 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
     std::string ionization_kinematics = "equal_energy";
         pp_collision_name.query("ionization_kinematics", ionization_kinematics);
         WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
-            ionization_kinematics == "equal_energy" || ionization_kinematics == "oopic",
-            collision_name + ".ionization_kinematics must be either equal_energy or oopic");
-        m_use_oopic_ionization_kinematics = (ionization_kinematics == "oopic");
+            ionization_kinematics == "equal_energy" || ionization_kinematics == "rudd",
+            collision_name + ".ionization_kinematics must be either equal_energy or rudd");
+        m_use_rudd_ionization_kinematics = (ionization_kinematics == "rudd");
 
     amrex::ParticleReal background_density = 0;
     if (utils::parser::queryWithParser(pp_collision_name, "background_density", background_density)) {
@@ -116,11 +116,15 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             //                                  "Background MCC only supports a single ionization process");
             ionization_flag = true;
 
-            std::string secondary_species;
-            pp_collision_name.get("ionization_species", secondary_species);
-            m_species_names.push_back(secondary_species);
-            pp_collision_name.get("electron_species", secondary_species);
-            m_species_names.push_back(secondary_species);
+            std::string ion_species;
+            pp_collision_name.get("ionization_species", ion_species);
+            m_species_names.push_back(ion_species);
+
+            // By default, place the secondary electron in the
+            // same species as the incident electron.
+            std::string electron_species = m_species_names[0];
+            pp_collision_name.query("electron_species", electron_species);
+            m_species_names.push_back(electron_species);
 
             m_ionization_processes.push_back(std::move(process));
         } else {
@@ -480,7 +484,7 @@ void BackgroundMCCCollision::doBackgroundIonization
         auto Transform = ImpactIonizationTransformFunc(
                                                         m_ionization_processes[0].getEnergyPenalty(),
                                                         m_mass1, sqrt_kb_m, m_background_temperature_func, t,
-                                                        m_use_oopic_ionization_kinematics // Revised for OOPIC kinematics
+                                                        m_use_rudd_ionization_kinematics // Revised for Rudd kinematics
                                                         );
 
         const auto num_added = filterCopyTransformParticles<1>(elec_species, ion_species,
