@@ -120,12 +120,19 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             pp_collision_name.get("ionization_species", ion_species);
             m_species_names.push_back(ion_species);
 
-            // By default, place the secondary electron in the
-            // same species as the incident electron.
+            
             std::string electron_species = m_species_names[0];
-            pp_collision_name.query("electron_species", electron_species);
-            m_species_names.push_back(electron_species);
 
+            // revision to support additional electron species for ionization
+            if (!pp_collision_name.query(
+                    "ionization_electron_species", electron_species))
+            {
+                // By default, place the secondary electron in the
+                // same species as the incident electron.
+                pp_collision_name.query(
+                    "electron_species", electron_species);
+            }
+            m_species_names.push_back(electron_species);
             m_ionization_processes.push_back(std::move(process));
         } else {
             m_scattering_processes.push_back(std::move(process));

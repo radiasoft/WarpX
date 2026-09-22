@@ -3406,12 +3406,14 @@ class MCCCollisions(picmistandard.base._ClassWithInit):
         collision.ndt_subcycle = self.ndt_subcycle
 
         collision.scattering_processes = self.scattering_processes.keys()
+
+        # available collision species
+        species_keys = {"species", "electron_species"}
         for process, kw in self.scattering_processes.items():
             for key, val in kw.items():
-                if key == "species":
+                if key in species_keys:
                     val = val.name
                 collision.add_new_attr(process + "_" + key, val)
-
 
 class DSMCCollisions(picmistandard.base._ClassWithInit):
     """
