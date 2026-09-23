@@ -3,6 +3,7 @@
 #################################
 ## With these parameters, each cell has a size of exactly 1 by 1 by 1
 max_step = 1
+warpx.random_seed = 4
 amr.n_cell = 8 8 16
 amr.max_grid_size = 8
 amr.blocking_factor = 8
@@ -35,11 +36,11 @@ particles.species_names = He3_1a He3_1b alpha1 proton1 \
                           He3_3a He3_3b alpha3 proton3
 
 # Define masses and energy steps
-my_constants.m_He3 = 3.0160293*m_u - 2*m_e
+my_constants.m_He3 = 3.0160293201*m_u - 2*m_e
 my_constants.m_reduced = m_He3 / 2.0
 my_constants.keV_to_J = 1.e3*q_e
-# Set energy step to 100 keV so the top of the grid (z=15) reaches 1.5 MeV lab (750 keV CM), 
-# successfully crossing the 400 keV piecewise transition boundary.
+# The quadratic z dependence spans approximately 0 to 22.5 MeV CM in test 1,
+# crossing both the 0.4 MeV transition and the 10 MeV table endpoint.
 my_constants.Energy_step = 100. * keV_to_J
 
 # =========================================================

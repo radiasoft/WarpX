@@ -2,6 +2,7 @@
 #define WARPX_HELIUM_HELIUM_FUSION_CROSS_SECTION_H
 
 #include "Utils/WarpXConst.H"
+#include <AMReX_Array.H>
 #include <AMReX_Math.H>
 #include <AMReX_REAL.H>
 #include <cmath>
@@ -17,12 +18,12 @@ amrex::ParticleReal HeliumHeliumFusionCrossSectionHighEnergy (const amrex::Parti
     using namespace amrex::literals;
 
     // Hardcoded ENDF/B-VIII.0 data points for E_cm >= 0.4 MeV
-    // Data extracted and converted to E_cm (E_lab / 2). 
+    // Data extracted and converted to E_cm (E_lab / 2).
     // E_cm is in MeV, Cross section is in barns.
     constexpr int n_points = 16;
     constexpr amrex::GpuArray<amrex::ParticleReal, n_points> E_cm_table = {
-        0.40_prt, 0.50_prt, 0.60_prt, 0.70_prt, 0.80_prt, 0.90_prt, 
-        1.00_prt, 1.50_prt, 2.00_prt, 3.00_prt, 4.00_prt, 5.00_prt, 
+        0.40_prt, 0.50_prt, 0.60_prt, 0.70_prt, 0.80_prt, 0.90_prt,
+        1.00_prt, 1.50_prt, 2.00_prt, 3.00_prt, 4.00_prt, 5.00_prt,
         6.00_prt, 7.00_prt, 8.00_prt, 10.00_prt
     };
     constexpr amrex::GpuArray<amrex::ParticleReal, n_points> sigma_table = {
@@ -56,7 +57,7 @@ amrex::ParticleReal HeliumHeliumFusionCrossSectionHighEnergy (const amrex::Parti
 }
 
 /**
- * \brief Computes the He3-He3 fusion cross section for low energies 
+ * \brief Computes the He3-He3 fusion cross section for low energies
  * using the Solar Fusion III recommendation.
  */
 
@@ -73,10 +74,10 @@ amrex::ParticleReal HeliumHeliumFusionCrossSectionSFIII (const amrex::ParticleRe
 
     // Explicitly define the fine structure constant
     constexpr amrex::ParticleReal alpha = 1.0_prt / 137.035999_prt;
-    
-    constexpr amrex::ParticleReal factor = 4.0_prt * MathConst::pi * alpha *
+
+    const amrex::ParticleReal factor = 4.0_prt * MathConst::pi * alpha *
         std::sqrt(static_cast<amrex::ParticleReal>(m_He3) * PhysConst::c * PhysConst::c / (1.e6_prt * PhysConst::q_e));
-    
+
     const amrex::ParticleReal two_pi_eta = factor / std::sqrt(E_MeV);
 
     // Return cross section in barn
@@ -84,7 +85,7 @@ amrex::ParticleReal HeliumHeliumFusionCrossSectionSFIII (const amrex::ParticleRe
 }
 
 /**
- * \brief Master function that routes the center-of-mass energy to the 
+ * \brief Master function that routes the center-of-mass energy to the
  * appropriate cross-section fit.
  */
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
@@ -92,14 +93,14 @@ amrex::ParticleReal HeliumHeliumFusionCrossSection (const amrex::ParticleReal& E
 {
     using namespace amrex::literals;
 
-    if (E_kin_star <= 0._prt) return 0._prt;
+    if (E_kin_star <= 0._prt) { return 0._prt; }
 
     // Convert energy from Joules to MeV
     constexpr amrex::ParticleReal joule_to_MeV = 1.e-6_prt / PhysConst::q_e;
     const amrex::ParticleReal E_MeV = E_kin_star * joule_to_MeV;
 
     // Transition energy shifted to 0.4 MeV to prevent SF-III polynomial blowup
-    constexpr amrex::ParticleReal E_threshold = 0.4_prt; 
+    constexpr amrex::ParticleReal E_threshold = 0.4_prt;
 
     // Route to the appropriate fit
     const amrex::ParticleReal cross_section_b = (E_MeV <= E_threshold) ?

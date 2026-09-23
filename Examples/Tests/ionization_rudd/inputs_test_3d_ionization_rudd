@@ -1,0 +1,111 @@
+# One collision step with no field feedback or transport.
+max_step = 1
+amr.n_cell = 8 8 8
+amr.max_grid_size = 8
+amr.blocking_factor = 8
+amr.max_level = 0
+geometry.dims = 3
+geometry.prob_lo = 0 0 0
+geometry.prob_hi = 1 1 1
+boundary.field_lo = periodic periodic periodic
+boundary.field_hi = periodic periodic periodic
+algo.particle_shape = 1
+warpx.const_dt = 1.e-12
+warpx.random_seed = 42
+warpx.verbose = 0
+
+my_constants.T = 100.
+my_constants.I = 15.7596112
+my_constants.u0 = sqrt((T*q_e/(m_e*clight**2))*(2+T*q_e/(m_e*clight**2)))
+particles.species_names = beam secondary ions same same_ions cold cold_ions
+collisions.collision_names = split default below
+
+
+beam.species_type = electron
+beam.do_not_push = 1
+beam.do_not_deposit = 1
+beam.injection_style = NRandomPerCell
+beam.num_particles_per_cell = 128
+beam.profile = constant
+beam.density = 1.e14
+beam.momentum_distribution_type = constant
+beam.ux = u0/3
+beam.uy = 2*u0/3
+beam.uz = 2*u0/3
+
+secondary.species_type = electron
+secondary.do_not_push = 1
+secondary.do_not_deposit = 1
+
+ions.species_type = argon
+ions.charge = q_e
+ions.do_not_push = 1
+ions.do_not_deposit = 1
+
+same.species_type = electron
+same.do_not_push = 1
+same.do_not_deposit = 1
+same.injection_style = NRandomPerCell
+same.num_particles_per_cell = 128
+same.profile = constant
+same.density = 1.e14
+same.momentum_distribution_type = constant
+same.uz = u0
+
+same_ions.species_type = argon
+same_ions.charge = q_e
+same_ions.do_not_push = 1
+same_ions.do_not_deposit = 1
+
+cold.species_type = electron
+cold.do_not_push = 1
+cold.do_not_deposit = 1
+cold.injection_style = NRandomPerCell
+cold.num_particles_per_cell = 128
+cold.profile = constant
+cold.density = 1.e14
+cold.momentum_distribution_type = constant
+cold.uz = sqrt((10*q_e/(m_e*clight**2))*(2+10*q_e/(m_e*clight**2)))
+
+cold_ions.species_type = argon
+cold_ions.charge = q_e
+cold_ions.do_not_push = 1
+cold_ions.do_not_deposit = 1
+
+split.type = background_mcc
+split.species = beam
+split.background_density = 3.e24
+split.background_temperature = 0
+split.scattering_processes = ionization
+split.ionization_cross_section = ionization.dat
+split.ionization_energy = I
+split.ionization_species = ions
+split.ionization_kinematics = rudd
+split.ionization_electron_species = secondary
+
+default.type = background_mcc
+default.species = same
+default.background_density = 3.e24
+default.background_temperature = 0
+default.scattering_processes = ionization
+default.ionization_cross_section = ionization.dat
+default.ionization_energy = I
+default.ionization_species = same_ions
+default.ionization_kinematics = rudd
+
+below.type = background_mcc
+below.species = cold
+below.background_density = 3.e24
+below.background_temperature = 0
+below.scattering_processes = ionization
+below.ionization_cross_section = ionization.dat
+below.ionization_energy = I
+below.ionization_species = cold_ions
+below.ionization_kinematics = rudd
+
+# Omit electron_species for "default" to exercise the two-species fallback.
+diagnostics.diags_names = diag1
+diag1.diag_type = Full
+diag1.format = plotfile
+diag1.intervals = 1
+diag1.fields_to_plot = Ex

@@ -65,31 +65,34 @@ if re.search("tritium", warpx_used_inputs):
     reaction_type = "DT"
     reactant_species = ["deuterium", "tritium"]
     product_species = ["helium4", "neutron"]
+    collision_names = ["DTF1", "DTF2"]
     ntests = 2
     E_fusion = 17.58929696 * MeV_to_Joule
-elif re.search("helium3", warpx_used_inputs):
-    # If helium3 appears in the file, then this is the D+He3 test
+elif "DHe3F1.type" in input_dict:
+    # Select by collision name: helium3 is also a product in the D+D test.
+    collision_names = ["DHe3F1", "DHe3F2"]
     reaction_type = "DHe3"
     reactant_species = ["deuterium", "helium3"]
     product_species = ["helium4", "proton"]
     ntests = 2
-    E_fusion = 18.353 * MeV_to_Joule
+    E_fusion = 18.35303980 * MeV_to_Joule
 else:
     # else, this is the D+D test
     reaction_type = "DD"
     reactant_species = ["deuterium", "hydrogen2"]
     product_species = ["helium3", "neutron"]
+    collision_names = ["DDNHeF1"]
     ntests = 1
-    E_fusion = 3.26891111e6 * MeV_to_Joule
+    E_fusion = 3.26891111 * MeV_to_Joule
 
 mass = {
     "deuterium": 2.01410177812 * scc.m_u - scc.m_e,
     "hydrogen2": 2.01410177812 * scc.m_u - scc.m_e,
     "tritium": 3.0160492779 * scc.m_u - scc.m_e,
-    "helium3": 3.016029 * scc.m_u - 2 * scc.m_e,
+    "helium3": 3.0160293201 * scc.m_u - 2 * scc.m_e,
     "helium4": 4.00260325413 * scc.m_u - 2 * scc.m_e,
     "neutron": 1.0013784193052508 * scc.m_p,
-    "proton": scc.m_p, # Added for D-He3 products
+    "proton": scc.m_p,
 }
 m_reduced = np.prod([mass[s] for s in reactant_species]) / np.sum(
     [mass[s] for s in reactant_species]
@@ -256,7 +259,18 @@ def check_id(data):
         assert complex_id.shape == np.unique(complex_id).shape
 
 
+def check_deuterium_helium_placement(data):
+    # Random initial z coordinates identify the source species even when reactant
+    # depletion is too small to resolve. A reversed product ordering must not put
+    # a proton at a He3 position or an alpha at a deuterium position.
+    for product, reactant in [("proton", "deuterium"), ("helium4", "helium3")]:
+        assert np.all(np.isin(data[product + "_z_end"], data[reactant + "_z_start"]))
+    assert data["proton_w_end"].size == data["helium4_w_end"].size
+
+
 def generic_check(data):
+    if reaction_type == "DHe3":
+        check_deuterium_helium_placement(data)
     check_particle_number_conservation(data)
     check_energy_conservation(data)
     check_momentum_conservation(data)
@@ -301,9 +315,9 @@ def cross_section(E_keV):
     ## in H.-S. Bosch and G.M. Hale 1992 Nucl. Fusion 32 611
     joule_to_keV = 1.0e-3 / scc.e
     B_G = scc.pi * scc.alpha * np.sqrt(2.0 * m_reduced * scc.c**2 * joule_to_keV)
-    
+
     if reaction_type == "DHe3":
-        B_G *= 2.0 # Adjust Gamow constant for Z=2 (Helium)
+        B_G *= 2.0  # Adjust Gamow constant for Z=2 (Helium)
 
     if reaction_type == "DT":
         A1 = 6.927e4
@@ -342,14 +356,15 @@ def cross_section(E_keV):
         A1 + E_keV * (A2 + E_keV * (A3 + E_keV * (A4 + E_keV * A5)))
     ) / (1 + E_keV * (B1 + E_keV * (B2 + E_keV * (B3 + E_keV * B4))))
     millibarn_to_barn = 1.0e-3
-    
+
     sigma = millibarn_to_barn * astrophysical_factor / E_keV * np.exp(-B_G / np.sqrt(E_keV))
-    
+
     # Enforce the 0.3 keV validity threshold for D+He3
     if reaction_type == "DHe3":
         sigma = np.where(E_keV < 0.3, 0.0, sigma)
-        
+
     return sigma
+
 
 def E_com_to_p_sq_com(m1, m2, E):
     ## E is the total (kinetic+mass) energy of a two particle (with mass m1 and m2) system in
@@ -414,8 +429,9 @@ def check_macroparticle_number(
     ## equal to the parameter fusion_probability_target_value
     fusion_probability_per_pair = fusion_probability_target_value
     expected_fusion_number = numcells * num_pair_per_cell * fusion_probability_per_pair
-    expected_macroparticle_number = 2 * expected_fusion_number
-    std_macroparticle_number = 2 * np.sqrt(expected_fusion_number)
+    copies_per_product = 1 if reaction_type == "DHe3" else 2
+    expected_macroparticle_number = copies_per_product * expected_fusion_number
+    std_macroparticle_number = copies_per_product * np.sqrt(expected_fusion_number)
     actual_macroparticle_number = data[product_species[0] + "_w_end"].shape[0]
     # 5 sigma test that has an intrinsic probability to fail of 1 over ~2 millions
     assert is_close(
@@ -424,6 +440,19 @@ def check_macroparticle_number(
         rtol=0.0,
         atol=5.0 * std_macroparticle_number,
     )
+
+    if "particle_production" in data:
+        w_sum = data[product_species[0] + "_w_end"].sum()
+        n_sum = data["particle_production"].sum()
+        tolerance = 0.02
+        print(
+            f"Check particle production diagnostic for collision {data['collision_name']}:"
+        )
+        print(f"from particles  = {w_sum}")
+        print(f"from diagnostic = {n_sum}")
+        print(f"error = {np.abs(w_sum - n_sum) / w_sum}")
+        print(f"tolerance = {tolerance}")
+        assert is_close(w_sum, n_sum, rtol=tolerance)
 
     ## used in subsequent function
     return expected_fusion_number
@@ -570,6 +599,13 @@ def main():
 
         # General checks that are performed for all tests
         generic_check(data)
+
+        product_production_name = f"{collision_names[i - 1]}_particle_production"
+        if ("boxlib", product_production_name) in ds_end.field_list:
+            data["collision_name"] = collision_names[i - 1]
+            data["particle_production"] = field_data_end[
+                "boxlib", product_production_name
+            ].to_ndarray()
 
         # Checks that are specific to test number i
         eval("specific_check" + str(i) + "(data, dt)")

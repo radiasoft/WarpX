@@ -16,6 +16,7 @@
 #include <AMReX_Random.H>
 #include <AMReX_REAL.H>
 
+#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -26,8 +27,8 @@ namespace {
     /**
      * \brief Initializes the momenta of the alpha particle and two protons produced from
      * He3-He3 fusion. The process is modeled as a direct three-body breakup.
-     * Energy is distributed among the three products according to non-relativistic 
-     * three-body phase space, and particles are emitted isotropically in their 
+     * Energy is distributed among the three products according to non-relativistic
+     * three-body phase space, and particles are emitted isotropically in their
      * respective center-of-mass frames.
      *
      * @param[in] soa_1 struct of array data of the first He3 colliding macroparticle
@@ -40,6 +41,8 @@ namespace {
      * @param[in] idx_proton_start index of first produced proton macroparticle
      * @param[in] m1 mass of first colliding species (He3)
      * @param[in] m2 mass of second colliding species (He3)
+     * @param[in] m_alpha mass of the product alpha species
+     * @param[in] m_proton mass of the product proton species
      * @param[in] engine the random engine
      */
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
@@ -50,17 +53,19 @@ namespace {
                             const index_type& idx_alpha_start,
                             const index_type& idx_proton_start,
                             const amrex::ParticleReal& m1, const amrex::ParticleReal& m2,
+                            const amrex::ParticleReal& m_alpha,
+                            const amrex::ParticleReal& m_proton,
                             const amrex::RandomEngine& engine)
     {
         using namespace amrex::literals;
-        
+
         // Enforce double precision for all kinematic calculations
         constexpr double c2_dbl = PhysConst::c * PhysConst::c;
         constexpr double inv_c_dbl = 1.0 / PhysConst::c;
 
-        constexpr double m_alpha_dbl = PhysConst::m_u * 4.00260325413 - 2.0 * PhysConst::m_e;
-        constexpr double m_proton_dbl = PhysConst::m_p;
-        
+        const double m_alpha_dbl = static_cast<double>(m_alpha);
+        const double m_proton_dbl = static_cast<double>(m_proton);
+
         const double m1_dbl = static_cast<double>(m1);
         const double m2_dbl = static_cast<double>(m2);
 
@@ -91,9 +96,9 @@ namespace {
         amrex::ParticleReal x_rnd, y_rnd;
         do {
             x_rnd = amrex::Random(engine);
-            y_rnd = 0.5_prt * amrex::Random(engine); 
+            y_rnd = 0.5_prt * amrex::Random(engine);
         } while (y_rnd > std::sqrt(x_rnd * (1.0_prt - x_rnd)));
-        
+
         const double x = static_cast<double>(x_rnd);
         const double E_pp_kin = x * Q_tot_dbl; // CM kinetic energy of the 2-proton system
 
@@ -105,7 +110,7 @@ namespace {
         const double E_alpha_cm = (M_inv_dbl*M_inv_dbl*c2_dbl*c2_dbl + m_alpha_dbl*m_alpha_dbl*c2_dbl*c2_dbl - mass_pp*mass_pp*c2_dbl*c2_dbl) / (2.0 * M_inv_dbl * c2_dbl);
         const double p_alpha_cm_sq = std::max(0.0, E_alpha_cm*E_alpha_cm*inv_c_dbl*inv_c_dbl - m_alpha_dbl*m_alpha_dbl*c2_dbl);
         const double p_alpha_cm_mag = std::sqrt(p_alpha_cm_sq);
-        
+
         amrex::ParticleReal px_alpha_cm_rt, py_alpha_cm_rt, pz_alpha_cm_rt;
         ParticleUtils::RandomizeVelocity(px_alpha_cm_rt, py_alpha_cm_rt, pz_alpha_cm_rt, static_cast<amrex::ParticleReal>(p_alpha_cm_mag), engine);
         const double px_alpha_cm = static_cast<double>(px_alpha_cm_rt);
@@ -121,7 +126,7 @@ namespace {
         const double E_p1_star = mass_pp * c2_dbl / 2.0;
         const double p_proton_star_sq = std::max(0.0, E_p1_star*E_p1_star*inv_c_dbl*inv_c_dbl - m_proton_dbl*m_proton_dbl*c2_dbl);
         const double p_proton_star_mag = std::sqrt(p_proton_star_sq);
-        
+
         amrex::ParticleReal px_p1_star_rt, py_p1_star_rt, pz_p1_star_rt;
         ParticleUtils::RandomizeVelocity(px_p1_star_rt, py_p1_star_rt, pz_p1_star_rt, static_cast<amrex::ParticleReal>(p_proton_star_mag), engine);
         const double px_p1_star = static_cast<double>(px_p1_star_rt);
@@ -225,16 +230,17 @@ namespace {
         const amrex::ParticleReal uy_p2 = static_cast<amrex::ParticleReal>(py_p2 / m_proton_dbl);
         const amrex::ParticleReal uz_p2 = static_cast<amrex::ParticleReal>(pz_p2 / m_proton_dbl);
 
+        // Each physical proton is copied to both reactant positions.
         soa_proton.m_rdata[PIdx::ux][idx_proton_start]     = ux_p1;
         soa_proton.m_rdata[PIdx::uy][idx_proton_start]     = uy_p1;
         soa_proton.m_rdata[PIdx::uz][idx_proton_start]     = uz_p1;
-        soa_proton.m_rdata[PIdx::ux][idx_proton_start + 1] = ux_p2;
-        soa_proton.m_rdata[PIdx::uy][idx_proton_start + 1] = uy_p2;
-        soa_proton.m_rdata[PIdx::uz][idx_proton_start + 1] = uz_p2;
+        soa_proton.m_rdata[PIdx::ux][idx_proton_start + 1] = ux_p1;
+        soa_proton.m_rdata[PIdx::uy][idx_proton_start + 1] = uy_p1;
+        soa_proton.m_rdata[PIdx::uz][idx_proton_start + 1] = uz_p1;
 
-        soa_proton.m_rdata[PIdx::ux][idx_proton_start + 2] = ux_p1;
-        soa_proton.m_rdata[PIdx::uy][idx_proton_start + 2] = uy_p1;
-        soa_proton.m_rdata[PIdx::uz][idx_proton_start + 2] = uz_p1;
+        soa_proton.m_rdata[PIdx::ux][idx_proton_start + 2] = ux_p2;
+        soa_proton.m_rdata[PIdx::uy][idx_proton_start + 2] = uy_p2;
+        soa_proton.m_rdata[PIdx::uz][idx_proton_start + 2] = uz_p2;
         soa_proton.m_rdata[PIdx::ux][idx_proton_start + 3] = ux_p2;
         soa_proton.m_rdata[PIdx::uy][idx_proton_start + 3] = uy_p2;
         soa_proton.m_rdata[PIdx::uz][idx_proton_start + 3] = uz_p2;

@@ -8,9 +8,11 @@
 #define WARPX_PARTICLES_COLLISION_IMPACT_IONIZATION_H_
 
 #include "Particles/Collision/ScatteringProcess.H"
+#include "RuddImpactIonization.H"
 
 #include "Particles/Algorithms/KineticEnergy.H"
 #include "Utils/ParticleUtils.H"
+#include "Utils/WarpXAlgorithmSelection.H"
 #include "Utils/WarpXConst.H"
 
 #include <AMReX_Random.H>
@@ -148,11 +150,14 @@ public:
                  temperature in Kelvin as a function of space and time
     * @param[in] t the current simulation time
     */
+
     ImpactIonizationTransformFunc(
         amrex::ParticleReal energy_cost, double mass1, amrex::ParticleReal sqrt_kb_m,
-        amrex::ParserExecutor<4> const& T_a_func, amrex::Real t
+        amrex::ParserExecutor<4> const& T_a_func, amrex::Real t,
+        bool use_rudd_kinematics // Add this parameter
     ) :  m_energy_cost(energy_cost), m_mass1(mass1),
-         m_sqrt_kb_m(sqrt_kb_m), m_T_a_func(T_a_func), m_t(t) { }
+         m_sqrt_kb_m(sqrt_kb_m), m_T_a_func(T_a_func), m_t(t),
+         m_use_rudd_kinematics(use_rudd_kinematics) { } // Revised for Rudd kinematics
 
     /**
     * \brief Functor call. It determines the properties of the generated pair
@@ -168,6 +173,7 @@ public:
     * @param[in] i_dst2 particle index of target species 2
     * @param[in] engine random number generator engine
     */
+
     template <typename DstData, typename SrcData>
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void operator() (DstData& dst1, DstData& dst2, SrcData& src,
@@ -203,63 +209,91 @@ public:
         auto& i_uz = dst2.m_rdata[PIdx::uz][i_dst2];
 
         // calculate kinetic energy
-
         constexpr auto eV = PhysConst::q_e;
         E_coll = Algorithms::KineticEnergy<double>(ux, uy, uz, m_mass1)/eV;
 
-        // precalculate often used value
-        const ParticleReal u_coll2 = ux*ux + uy*uy + uz*uz;
-        
-        // calculate unit vector of the incident species
-        const amrex::ParticleReal x_unit = ux / sqrt(u_coll2);
-        const amrex::ParticleReal y_unit = uy / sqrt(u_coll2);
-        const amrex::ParticleReal z_unit = uz / sqrt(u_coll2);
-        
-        // E_coll == T_impact
-        const auto W_max = E_coll / 300.0_prt;
-        const auto W_elec = Random(engine)*W_max;
-        
-        // const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost) * PhysConst::q_e);
-        const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost - W_elec) * PhysConst::q_e);
-        constexpr auto c2 = PhysConst::c2;
+        if (m_use_rudd_kinematics) {
+            const auto impact_energy_ev = static_cast<amrex::ParticleReal>(E_coll);
+            const auto electron_rest_energy_ev = static_cast<amrex::ParticleReal>(
+                m_mass1*PhysConst::c2/eV);
+            const auto secondary_energy_ev = RuddImpactIonization::sampleSecondaryEnergy(
+                impact_energy_ev, m_energy_cost, electron_rest_energy_ev, engine);
+            const auto primary_energy_ev = amrex::max(
+                impact_energy_ev-m_energy_cost-secondary_energy_ev, 0.0_prt);
 
-        // Corresponding momentum of the incident species
-        const auto mc2 = m_mass1 * c2;
-        const amrex::ParticleReal up = sqrt(E_out * (E_out + 2.0_prt*mc2) / c2) / m_mass1;
-        // // isotropically scatter incident species
-        // ParticleUtils::RandomizeVelocity(ux, uy, uz, up, engine);
-        
-        // Use same unit vector as before collision, essentially turning off scattering
-        ux = x_unit * up;
-        uy = y_unit * up;
-        uz = z_unit * up;
+            amrex::ParticleReal theta_primary, phi_primary;
+            amrex::ParticleReal theta_secondary, phi_secondary;
+            RuddImpactIonization::sampleAngles(
+                impact_energy_ev, secondary_energy_ev, m_energy_cost,
+                electron_rest_energy_ev, theta_primary, phi_primary,
+                theta_secondary, phi_secondary, engine);
 
-        // Corresponding momentum of the electron species
-        constexpr auto mc2_e = PhysConst::m_e * c2;
-        const amrex::ParticleReal up_e = sqrt(W_elec*PhysConst::q_e * (W_elec*PhysConst::q_e + 2.0_prt*mc2_e) / c2) / PhysConst::m_e;
-        // const amrex::ParticleReal up_e = 0.0;
-        // const amrex::ParticleReal up_e = sqrt(E_out * (E_out + 2.0_prt*mc2_e) / c2) / PhysConst::m_e;
+            // Both angles are measured from the original impact direction.
+            const auto ux_in = ux;
+            const auto uy_in = uy;
+            const auto uz_in = uz;
+            RuddImpactIonization::setMomentum(
+                ux_in, uy_in, uz_in, primary_energy_ev, electron_rest_energy_ev,
+                theta_primary, phi_primary, ux, uy, uz);
+            RuddImpactIonization::setMomentum(
+                ux_in, uy_in, uz_in, secondary_energy_ev, electron_rest_energy_ev,
+                theta_secondary, phi_secondary, e_ux, e_uy, e_uz);
+        } else {
+            // precalculate often used value
+            const ParticleReal u_coll2 = ux*ux + uy*uy + uz*uz;
+            
+            // calculate unit vector of the incident species
+            const amrex::ParticleReal x_unit = ux / sqrt(u_coll2);
+            const amrex::ParticleReal y_unit = uy / sqrt(u_coll2);
+            const amrex::ParticleReal z_unit = uz / sqrt(u_coll2);
+            
+            // E_coll == T_impact
+            const auto W_max = E_coll / 300.0_prt;
+            const auto W_elec = Random(engine)*W_max;
+            
+            // const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost) * PhysConst::q_e);
+            const auto E_out = static_cast<amrex::ParticleReal>((E_coll - m_energy_cost - W_elec) * PhysConst::q_e);
+            constexpr auto c2 = PhysConst::c2;
 
-        // Define the velocity (magnitude) of the created electron as follows: v_total = v_elec + v_therm
-        //     where the magnitude of v_elec is the velocity associated with W_elec.
-        //     The magnitude of v_therm is an RMS expectation value, consistent with the specified 
-        // temperature of the neutral Ar gas.
-        const amrex::ParticleReal v_total = up_e + elec_vel_std;
-        
-        // isotropically scatter incident species
-        // ParticleUtils::RandomizeVelocity(e_ux, e_uy, e_uz, up_e, engine);
-        ParticleUtils::RandomizeVelocity(e_ux, e_uy, e_uz, v_total, engine);
-        
-        // // Use same unit vector as before collision, essentially turning off scattering
-        // e_ux = x_unit * up_e;
-        // e_uy = y_unit * up_e;
-        // e_uz = z_unit * up_e;
-        
+            // Corresponding momentum of the incident species
+            const auto mc2 = m_mass1 * c2;
+            const amrex::ParticleReal up = sqrt(E_out * (E_out + 2.0_prt*mc2) / c2) / m_mass1;
+            // // isotropically scatter incident species
+            // ParticleUtils::RandomizeVelocity(ux, uy, uz, up, engine);
+            
+            // Use same unit vector as before collision, essentially turning off scattering
+            ux = x_unit * up;
+            uy = y_unit * up;
+            uz = z_unit * up;
+
+            // Corresponding momentum of the electron species
+            constexpr auto mc2_e = PhysConst::m_e * c2;
+            const amrex::ParticleReal up_e = sqrt(W_elec*PhysConst::q_e * (W_elec*PhysConst::q_e + 2.0_prt*mc2_e) / c2) / PhysConst::m_e;
+            // const amrex::ParticleReal up_e = 0.0;
+            // const amrex::ParticleReal up_e = sqrt(E_out * (E_out + 2.0_prt*mc2_e) / c2) / PhysConst::m_e;
+
+            // Define the velocity (magnitude) of the created electron as follows: v_total = v_elec + v_therm
+            //     where the magnitude of v_elec is the velocity associated with W_elec.
+            //     The magnitude of v_therm is an RMS expectation value, consistent with the specified 
+            // temperature of the neutral Ar gas.
+            const amrex::ParticleReal v_total = up_e + elec_vel_std;
+            
+            // isotropically scatter incident species
+            // ParticleUtils::RandomizeVelocity(e_ux, e_uy, e_uz, up_e, engine);
+            ParticleUtils::RandomizeVelocity(e_ux, e_uy, e_uz, v_total, engine);
+            
+            // // Use same unit vector as before collision, essentially turning off scattering
+            // e_ux = x_unit * up_e;
+            // e_uy = y_unit * up_e;
+            // e_uz = z_unit * up_e;
+        }
+
         // get velocities for the ion from a Maxwellian distribution
         i_ux = ion_vel_std * RandomNormal(0_prt, 1.0_prt, engine);
         i_uy = ion_vel_std * RandomNormal(0_prt, 1.0_prt, engine);
         i_uz = ion_vel_std * RandomNormal(0_prt, 1.0_prt, engine);
     }
+
 
 private:
     amrex::ParticleReal m_energy_cost;
@@ -267,6 +301,7 @@ private:
     amrex::ParticleReal m_sqrt_kb_m;
     amrex::ParserExecutor<4> m_T_a_func;
     amrex::Real m_t;
+    bool m_use_rudd_kinematics; // Support for Rudd kinematics
 };
 
 #endif // WARPX_PARTICLES_COLLISION_IMPACT_IONIZATION_H_
