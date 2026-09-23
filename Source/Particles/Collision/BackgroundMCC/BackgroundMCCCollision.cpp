@@ -30,11 +30,17 @@
 BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_name)
     : CollisionBase(collision_name)
 {
-    // Not sure if I can comment this out, but will have to for now
     // WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_species_names.size() == 1,
     //                                  "Background MCC must have exactly one species.");
 
     const amrex::ParmParse pp_collision_name(collision_name);
+
+    std::string ionization_kinematics = "equal_energy";
+        pp_collision_name.query("ionization_kinematics", ionization_kinematics);
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            ionization_kinematics == "equal_energy" || ionization_kinematics == "rudd",
+            collision_name + ".ionization_kinematics must be either equal_energy or rudd");
+        m_use_rudd_ionization_kinematics = (ionization_kinematics == "rudd");
 
     amrex::ParticleReal background_density = 0;
     if (utils::parser::queryWithParser(pp_collision_name, "background_density", background_density)) {
@@ -111,12 +117,23 @@ BackgroundMCCCollision::BackgroundMCCCollision (std::string const& collision_nam
             //                                  "Background MCC only supports a single ionization process");
             ionization_flag = true;
 
-            std::string secondary_species;
-            pp_collision_name.get("ionization_species", secondary_species);
-            m_species_names.push_back(secondary_species);
-            pp_collision_name.get("electron_species", secondary_species);
-            m_species_names.push_back(secondary_species);
+            std::string ion_species;
+            pp_collision_name.get("ionization_species", ion_species);
+            m_species_names.push_back(ion_species);
 
+            
+            std::string electron_species = m_species_names[0];
+
+            // revision to support additional electron species for ionization
+            if (!pp_collision_name.query(
+                    "ionization_electron_species", electron_species))
+            {
+                // By default, place the secondary electron in the
+                // same species as the incident electron.
+                pp_collision_name.query(
+                    "electron_species", electron_species);
+            }
+            m_species_names.push_back(electron_species);
             m_ionization_processes.push_back(std::move(process));
         } else {
             m_scattering_processes.push_back(std::move(process));
@@ -473,9 +490,10 @@ void BackgroundMCCCollision::doBackgroundIonization
         const auto np_ion = ion_tile.numParticles();
 
         auto Transform = ImpactIonizationTransformFunc(
-                                                       m_ionization_processes[0].getEnergyPenalty(),
-                                                       m_mass1, sqrt_kb_m, m_background_temperature_func, t
-                                                       );
+                                                        m_ionization_processes[0].getEnergyPenalty(),
+                                                        m_mass1, sqrt_kb_m, m_background_temperature_func, t,
+                                                        m_use_rudd_ionization_kinematics // Revised for Rudd kinematics
+                                                        );
 
         const auto num_added = filterCopyTransformParticles<1>(elec_species, ion_species,
                                                                elec_tile, ion_tile, incident_tile, np_elec, np_ion,
