@@ -263,7 +263,7 @@ namespace BinaryCollisionUtils{
             auto& product_species2 = mypc->GetParticleContainerFromName(product_species_name[1]);
 
             // Mass after is 1 alpha + 2 protons
-            mass_after = product_species1.getMass() + 2.0_prt * product_species2.getMass(); 
+            mass_after = product_species1.getMass() + 2.0_prt * product_species2.getMass();
 
             WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 (product_species1.AmIA<PhysicalSpecies::helium4>() && product_species2.AmIA<PhysicalSpecies::proton>()),
@@ -319,7 +319,7 @@ namespace BinaryCollisionUtils{
             expected_fusion_energy = 12.859e6_prt * PhysConst::q_e;
             error_msg << "Fusion energy mismatch in He3 + He3 -> He4 + 2p\n";
         }
-        
+
         const amrex::ParticleReal energy_error = amrex::Math::abs(fusion_energy - expected_fusion_energy);
         const amrex::ParticleReal energy_rel_tol = 0.01_prt;
 

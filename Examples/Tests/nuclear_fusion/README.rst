@@ -1,6 +1,54 @@
 Nuclear fusion tests
 ====================
 
+Helium-3 fusion
+---------------
+
+The D-He3 regression checks fusion yield, conservation, product multiplicity,
+and placement of protons at deuterium positions and alphas at helium3 positions.
+Its two cases use opposite product orders to exercise both placement mappings.
+The He3-He3 regression checks head-on fusion yield and particle counts, plus
+stoichiometry, energy, momentum, identifiers and charge conservation for head-on,
+beam-target and thermal cases. It does not validate the three-body spectral model
+against measured proton spectra.
+
+Run the fusion regressions with a 3D MPI build (openPMD is also needed for the
+anisotropic cases):
+
+.. code-block:: bash
+
+   cmake -S . -B build -DWarpX_DIMS=3 -DWarpX_MPI=ON -DWarpX_OPENPMD=ON -DBUILD_TESTING=ON
+   cmake --build build -j 8
+   ctest --test-dir build -N -R 'test_3d_.*fusion'
+   ctest --test-dir build --output-on-failure -R 'test_3d_.*fusion' -E '\.checksum$'
+
+The new helium tests require NumPy, SciPy and yt for analysis. The anisotropic
+analyses additionally require openPMD-viewer and matplotlib. New checksum
+baselines must be generated and reviewed separately; these tests have physics
+analyses that run independently of checksum comparison. Measure runtime on the
+CI CPU configuration before enabling these tests in a merge-ready PR.
+
+Cross-section reference and outstanding model review
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The low-energy polynomial follows `Solar Fusion III, Section V.2
+<https://arxiv.org/html/2405.06470v2#S5.SS2>`__.
+``helium_helium_cross_section_endf.csv`` preserves the numerical values in the
+user-supplied ``ENDF_He3.txt`` export, converting ENDF-style exponents to ordinary
+scientific notation. The original export SHA-256 is
+``2fc08c9826dba615f63f5747e25503efa13122382b90e9e7a3b5894460534f53``.
+It has no release, MAT, MT or interpolation-law metadata, so the claimed
+ENDF/B-VIII.0 attribution still needs the original evaluation reference.
+
+All 16 production table values match this export exactly when its energy is
+interpreted as lab energy and converted using ``E_cm = E_lab / 2``. The coarse
+grid differs by up to 2.925% from omitted export nodes (at 2.5 MeV CM).
+The existing piecewise model is retained: at 0.4 MeV CM the SF-III fit gives
+approximately 0.00580316 b, while the high-energy table starts at 0.0048292 b.
+This is a 16.78% downward discontinuity and needs physics review before merging.
+Above 10 MeV CM, the model holds the final table value constant; this is an
+extrapolation policy, not additional evaluated data.
+
 Anisotropic D-D and D-T beam-target fusion
 -------------------------------------------
 

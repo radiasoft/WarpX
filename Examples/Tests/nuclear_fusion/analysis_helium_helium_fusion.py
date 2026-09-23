@@ -9,6 +9,7 @@ is not an independent validation of the provenance of the high-energy table.
 """
 
 import sys
+from pathlib import Path
 
 import numpy as np
 import scipy.constants as scc
@@ -33,15 +34,16 @@ def cross_section(energy_mev):
         fit_mass * scc.c**2 / (energy * 1.0e6 * scc.e)
     )
     low = s_factor / energy * np.exp(-exponent)
-    high = np.interp(
-        energy,
-        [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 10],
-        [
-            0.0048292, 0.0083371, 0.012230, 0.016327, 0.020573, 0.024993,
-            0.029658, 0.048250, 0.064040, 0.083553, 0.095072, 0.104150,
-            0.110800, 0.115010, 0.116790, 0.113030,
-        ],
+    # Keep the production model's coarse grid, but obtain reference values from
+    # the supplied source export instead of duplicating the C++ cross sections.
+    source = np.loadtxt(
+        Path(__file__).with_name("helium_helium_cross_section_endf.csv"), delimiter=","
     )
+    model_grid = np.array(
+        [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 10]
+    )
+    model_values = np.interp(model_grid, source[:, 0] / 2e6, source[:, 1])
+    high = np.interp(energy, model_grid, model_values)
     return np.where(energy_mev <= 0, 0, np.where(energy_mev <= 0.4, low, high))
 
 
