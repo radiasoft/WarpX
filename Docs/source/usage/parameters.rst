@@ -2938,8 +2938,9 @@ Details about the collision models can be found in the :ref:`theory section <mul
       Helium3-helium3 fusion requires ``product_species`` in the order ``helium4 proton``.
       It creates two half-weight alpha macroparticles and four half-weight proton
       macroparticles per event, distributed equally between the reactant positions.
-      Its cross section uses the Solar Fusion III fit up to 0.4 MeV center-of-mass energy,
-      a linearly interpolated table above that energy, and a constant value above 10 MeV.
+      Its cross section uses the Solar Fusion III fit up to 0.2 MeV center-of-mass energy,
+      linear interpolation through all supplied table points above that energy, and a constant value above 10 MeV.
+      The piecewise model retains an approximately 1.6% downward jump at 0.2 MeV.
       Its three-body product model uses nonrelativistic phase-space energy sampling
       with relativistic kinematics and isotropic emission in the breakup frames.
     - ``dsmc`` for pair-wise, non-Coulomb collisions between kinetic species.

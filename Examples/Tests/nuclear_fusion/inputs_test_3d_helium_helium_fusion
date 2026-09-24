@@ -40,7 +40,7 @@ my_constants.m_He3 = 3.0160293201*m_u - 2*m_e
 my_constants.m_reduced = m_He3 / 2.0
 my_constants.keV_to_J = 1.e3*q_e
 # The quadratic z dependence spans approximately 0 to 22.5 MeV CM in test 1,
-# crossing both the 0.4 MeV transition and the 10 MeV table endpoint.
+# crossing both the 0.2 MeV transition and the 10 MeV table endpoint.
 my_constants.Energy_step = 100. * keV_to_J
 
 # =========================================================

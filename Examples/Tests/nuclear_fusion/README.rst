@@ -37,17 +37,29 @@ The low-energy polynomial follows `Solar Fusion III, Section V.2
 user-supplied ``ENDF_He3.txt`` export, converting ENDF-style exponents to ordinary
 scientific notation. The original export SHA-256 is
 ``2fc08c9826dba615f63f5747e25503efa13122382b90e9e7a3b5894460534f53``.
-It has no release, MAT, MT or interpolation-law metadata, so the claimed
-ENDF/B-VIII.0 attribution still needs the original evaluation reference.
+For ENDF/B-VII.1 data, see https://www.nndc.bnl.gov/sigma/index.jsp.
 
-All 16 production table values match this export exactly when its energy is
-interpreted as lab energy and converted using ``E_cm = E_lab / 2``. The coarse
-grid differs by up to 2.925% from omitted export nodes (at 2.5 MeV CM).
-The existing piecewise model is retained: at 0.4 MeV CM the SF-III fit gives
-approximately 0.00580316 b, while the high-energy table starts at 0.0048292 b.
-This is a 16.78% downward discontinuity and needs physics review before merging.
+The production table includes all 45 export points from 0.2 through 10 MeV CM,
+using ``E_cm = E_lab / 2`` and linear interpolation between adjacent points.
+This removes the additional interpolation error of the former 16-point subset.
+The transition from SF-III to the table is at 0.2 MeV CM: the SF-III fit gives
+approximately 0.000446492 b and the table starts at 0.000439370 b.
+The downward discontinuity is approximately 1.60%, reduced from 16.78% at the
+previous 0.4 MeV cutoff. The fits are not rescaled or blended, so a small jump
+remains; this choice preserves the supplied table values.
 Above 10 MeV CM, the model holds the final table value constant; this is an
 extrapolation policy, not additional evaluated data.
+
+To compare the former 0.4 MeV / 16-point model with the revised 0.2 MeV /
+45-point model, run the following with NumPy and matplotlib installed:
+
+.. code-block:: bash
+
+   python Examples/Tests/nuclear_fusion/plot_helium_helium_cross_section.py --output He3_transition_comparison.png
+
+The plot includes the SF-III uncertainty band and a close-up of both transition
+energies. The C++ table remains embedded for GPU use, with values taken directly
+from the committed export rather than a separate high-energy fit.
 
 Anisotropic D-D and D-T beam-target fusion
 -------------------------------------------

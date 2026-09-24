@@ -34,17 +34,14 @@ def cross_section(energy_mev):
         fit_mass * scc.c**2 / (energy * 1.0e6 * scc.e)
     )
     low = s_factor / energy * np.exp(-exponent)
-    # Keep the production model's coarse grid, but obtain reference values from
-    # the supplied source export instead of duplicating the C++ cross sections.
+    # Use every supplied source point in the tabulated regime.
     source = np.loadtxt(
         Path(__file__).with_name("helium_helium_cross_section_endf.csv"), delimiter=","
     )
-    model_grid = np.array(
-        [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 10]
-    )
-    model_values = np.interp(model_grid, source[:, 0] / 2e6, source[:, 1])
-    high = np.interp(energy, model_grid, model_values)
-    return np.where(energy_mev <= 0, 0, np.where(energy_mev <= 0.4, low, high))
+    energy_cm = source[:, 0] / 2e6
+    tabulated = energy_cm >= 0.2
+    high = np.interp(energy, energy_cm[tabulated], source[tabulated, 1])
+    return np.where(energy_mev <= 0, 0, np.where(energy_mev <= 0.2, low, high))
 
 
 def read_species(data, name, mass):
