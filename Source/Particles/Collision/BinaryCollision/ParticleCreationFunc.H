@@ -10,10 +10,11 @@
 
 #include "BinaryCollisionUtils.H"
 
-#include "Particles/Collision/BinaryCollision/NuclearFusion/TwoProductFusionInitializeMomentum.H"
-#include "Particles/Collision/BinaryCollision/NuclearFusion/ProtonBoronFusionInitializeMomentum.H"
 #include "Particles/Collision/BinaryCollision/LinearBreitWheeler/LinearBreitWheelerInitializeMomentum.H"
 #include "Particles/Collision/BinaryCollision/LinearCompton/LinearComptonInitializeMomentum.H"
+#include "Particles/Collision/BinaryCollision/NuclearFusion/HeliumHeliumFusionInitializeMomentum.H"
+#include "Particles/Collision/BinaryCollision/NuclearFusion/ProtonBoronFusionInitializeMomentum.H"
+#include "Particles/Collision/BinaryCollision/NuclearFusion/TwoProductFusionInitializeMomentum.H"
 #include "Particles/ParticleCreation/SmartCopy.H"
 #include "Particles/MultiParticleContainer.H"
 #include "Particles/WarpXParticleContainer.H"
@@ -126,13 +127,15 @@ public:
         // How many particles of each product species are created.
         // Linear Compton: one macroparticle per product species
         // (one product photon at reactant photon position, same for electron)
+        // D-He3: one proton at the deuterium position and one alpha at the He3 position.
         // All other binary processes: create one product particle at
         // the position of each reacting particles (factor 2).
         // E.g., if a binary collision produces one electron, we create two electrons,
         // one at the position of each particle that collided.
         // This allows for exact charge conservation.
         const int products_per_reactant_factor =
-            (m_collision_type == CollisionType::LinearCompton) ? 1 : 2;
+            (m_collision_type == CollisionType::LinearCompton ||
+             m_collision_type == CollisionType::DeuteriumHeliumToProtonHeliumFusion) ? 1 : 2;
         amrex::Vector<int> num_added_vec(m_num_product_species);
         for (int i = 0; i < m_num_product_species; i++)
         {
@@ -176,6 +179,7 @@ public:
         const int t_num_product_species = m_num_product_species;
         const int* AMREX_RESTRICT p_num_products_device = m_num_products_device.data();
         const CollisionType t_collision_type = m_collision_type;
+        const bool t_first_product_at_first_reactant = m_first_product_at_first_reactant;
         const ScatteringAngleModel t_scattering_angle_model = m_scattering_angle_model;
         const ScatteringUtils::AnisotropicCoefficientTable t_anisotropic_coefficients{
             m_legendre_angular_distribution_energies.empty() ? nullptr : m_legendre_angular_distribution_energies.data(),
@@ -218,6 +222,28 @@ public:
                             soa_products_data[j].m_rdata[PIdx::w][product_index] =
                                 p_pair_reaction_weight[i];
                         }
+                        else if (t_collision_type == CollisionType::DeuteriumHeliumToProtonHeliumFusion)
+                        {
+                            // Match proton to deuterium and alpha to He3 for either input ordering.
+                            const auto product_index = products_np_data[j] +
+                                (p_offsets[i]*p_num_products_device[j] + k);
+
+                            if ((j == 0) == t_first_product_at_first_reactant)
+                            {
+                                copy_species1[j](soa_products_data[j], soa_1,
+                                    static_cast<int>(p_pair_indices_1[i]),
+                                    static_cast<int>(product_index), engine);
+                            }
+                            else
+                            {
+                                copy_species2[j](soa_products_data[j], soa_2,
+                                    static_cast<int>(p_pair_indices_2[i]),
+                                    static_cast<int>(product_index), engine);
+                            }
+                            // Assign the full reaction weight
+                            soa_products_data[j].m_rdata[PIdx::w][product_index] =
+                                p_pair_reaction_weight[i];
+                        }
                         else
                         {
                             // Create one product at the position of each source particle
@@ -250,6 +276,20 @@ public:
                                                         t_anisotropic_coefficients,
                                                         &event_energy_range_status, engine);
                 }
+                else if (t_collision_type == CollisionType::HeliumHeliumFusion)
+                {
+                    const index_type alpha_start_index = products_np_data[0] +
+                                                        2*p_offsets[i]*p_num_products_device[0];
+                    const index_type proton_start_index = products_np_data[1] +
+                                                        2*p_offsets[i]*p_num_products_device[1];
+
+                    HeliumHeliumFusionInitializeMomentum(soa_1, soa_2,
+                                                        soa_products_data[0], soa_products_data[1],
+                                                        p_pair_indices_1[i], p_pair_indices_2[i],
+                                                        alpha_start_index, proton_start_index,
+                                                        m1, m2, products_mass_data[0],
+                                                        products_mass_data[1], engine);
+                }
                 else if (BinaryCollisionUtils::is_two_product_fusion_type(t_collision_type))
                 {
                     const amrex::ParticleReal mass_before = m1 + m2;
@@ -258,10 +298,10 @@ public:
                     TwoProductFusionInitializeMomentum(soa_1, soa_2,
                         soa_products_data[0], soa_products_data[1],
                         p_pair_indices_1[i], p_pair_indices_2[i],
-                        products_np_data[0] + 2*p_offsets[i]*p_num_products_device[0],
-                        products_np_data[1] + 2*p_offsets[i]*p_num_products_device[1],
+                        products_np_data[0] + products_per_reactant_factor*p_offsets[i]*p_num_products_device[0],
+                        products_np_data[1] + products_per_reactant_factor*p_offsets[i]*p_num_products_device[1],
                         m1, m2, products_mass_data[0], products_mass_data[1], fusion_energy,
-                        t_scattering_angle_model, t_anisotropic_coefficients,
+                        t_collision_type, t_scattering_angle_model, t_anisotropic_coefficients,
                         &event_energy_range_status, engine);
                 }
                 else if(t_collision_type == CollisionType::LinearBreitWheeler){
@@ -306,6 +346,9 @@ public:
     }
 
 private:
+    // D-He3 product placement is independent of reactant and product ordering.
+    bool m_first_product_at_first_reactant = true;
+
     static void RecordEnergyRangeWarnings (int minimum_status, int maximum_status);
 
     // How many different type of species the collision produces

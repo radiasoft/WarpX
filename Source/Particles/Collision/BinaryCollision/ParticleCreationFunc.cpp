@@ -142,6 +142,19 @@ ParticleCreationFunc::ParticleCreationFunc (const std::string& collision_name,
 {
     const amrex::ParmParse pp_collision_name(collision_name);
 
+    if (m_collision_type == CollisionType::DeuteriumHeliumToProtonHeliumFusion)
+    {
+        amrex::Vector<std::string> species_names;
+        amrex::Vector<std::string> product_names;
+        pp_collision_name.getarr("species", species_names);
+        pp_collision_name.getarr("product_species", product_names);
+        auto const& first_reactant = mypc->GetParticleContainerFromName(species_names[0]);
+        auto const& first_product = mypc->GetParticleContainerFromName(product_names[0]);
+        m_first_product_at_first_reactant =
+            first_reactant.AmIA<PhysicalSpecies::hydrogen2>() ==
+            first_product.AmIA<PhysicalSpecies::proton>();
+    }
+
     if (m_collision_type == CollisionType::ProtonBoronToAlphasFusion)
     {
         // Proton-Boron fusion only produces alpha particles
@@ -151,6 +164,19 @@ ParticleCreationFunc::ParticleCreationFunc (const std::string& collision_name,
 #ifndef AMREX_USE_GPU
         // On CPU, the device vector can be filled immediately
         m_num_products_device.push_back(3);
+#endif
+    }
+    else if (m_collision_type == CollisionType::HeliumHeliumFusion)
+    {
+        // He3-He3 fusion produces 2 distinct species: alphas and protons
+        m_num_product_species = 2;
+        // It produces 1 alpha and 2 protons per fusion reaction
+        m_num_products_host.push_back(1);
+        m_num_products_host.push_back(2);
+#ifndef AMREX_USE_GPU
+        // On CPU, the device vector can be filled immediately
+        m_num_products_device.push_back(1);
+        m_num_products_device.push_back(2);
 #endif
     }
     else if ((BinaryCollisionUtils::is_two_product_fusion_type(m_collision_type))
@@ -172,9 +198,20 @@ ParticleCreationFunc::ParticleCreationFunc (const std::string& collision_name,
     }
 
     if (m_collision_type == CollisionType::ProtonBoronToAlphasFusion
+        || m_collision_type == CollisionType::HeliumHeliumFusion
         || BinaryCollisionUtils::is_two_product_fusion_type(m_collision_type))
     {
         pp_collision_name.query_enum_case_insensitive("scattering_angle_model", m_scattering_angle_model);
+    }
+
+    if (m_collision_type == CollisionType::HeliumHeliumFusion)
+    {
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            m_scattering_angle_model == ScatteringAngleModel::Isotropic,
+            "He3-He3 fusion currently supports only scattering_angle_model = isotropic.");
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
+            !pp_collision_name.contains("legendre_angular_distribution_coefficients"),
+            "He3-He3 fusion does not support a Legendre angular-distribution table.");
     }
 
     // Optionally load an energy-dependent table of coefficients that

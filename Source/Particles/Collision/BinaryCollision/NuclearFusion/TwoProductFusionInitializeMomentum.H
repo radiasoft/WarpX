@@ -8,6 +8,7 @@
 #ifndef WARPX_TWO_PRODUCT_FUSION_INITIALIZE_MOMENTUM_H
 #define WARPX_TWO_PRODUCT_FUSION_INITIALIZE_MOMENTUM_H
 
+#include "Particles/Collision/BinaryCollision/BinaryCollisionUtils.H"
 #include "Particles/Collision/BinaryCollision/TwoProductUtil.H"
 #include "Particles/WarpXParticleContainer.H"
 #include "Utils/WarpXAlgorithmSelection.H"
@@ -51,6 +52,7 @@ namespace {
      * @param[in] m1_out mass of first product species
      * @param[in] m2_out mass of second product species
      * @param[in] E_fusion energy released in the fusion reaction
+     * @param[in] collision_type fusion reaction, which determines product multiplicity
      * @param[in] scattering_angle_model the scattering angle distribution to use
      * @param[in] anisotropic_coefficients table of energy-dependent anisotropic coefficients
      * @param[out] energy_range_status per-event status: -1 below, 0 within, 1 above
@@ -65,6 +67,7 @@ namespace {
                             const amrex::ParticleReal& m1_in, const amrex::ParticleReal& m2_in,
                             const amrex::ParticleReal& m1_out, const amrex::ParticleReal& m2_out,
                             const amrex::ParticleReal& E_fusion,
+                            CollisionType const collision_type,
                             ScatteringAngleModel const scattering_angle_model,
                             ScatteringUtils::AnisotropicCoefficientTable const& anisotropic_coefficients,
                             int* const energy_range_status,
@@ -90,20 +93,20 @@ namespace {
             energy_range_status,
             engine);
 
-        // Fill momentum of product species (note that we actually
-        // create 4 products, 2 at the position of each incident particle)
-        soa1_out.m_rdata[PIdx::ux][idx1_out_start] = ux1_out;
-        soa1_out.m_rdata[PIdx::uy][idx1_out_start] = uy1_out;
-        soa1_out.m_rdata[PIdx::uz][idx1_out_start] = uz1_out;
-        soa1_out.m_rdata[PIdx::ux][idx1_out_start + 1] = ux1_out;
-        soa1_out.m_rdata[PIdx::uy][idx1_out_start + 1] = uy1_out;
-        soa1_out.m_rdata[PIdx::uz][idx1_out_start + 1] = uz1_out;
-        soa2_out.m_rdata[PIdx::ux][idx2_out_start] = ux2_out;
-        soa2_out.m_rdata[PIdx::uy][idx2_out_start] = uy2_out;
-        soa2_out.m_rdata[PIdx::uz][idx2_out_start] = uz2_out;
-        soa2_out.m_rdata[PIdx::ux][idx2_out_start + 1] = ux2_out;
-        soa2_out.m_rdata[PIdx::uy][idx2_out_start + 1] = uy2_out;
-        soa2_out.m_rdata[PIdx::uz][idx2_out_start + 1] = uz2_out;
+
+        // D-He3 uses one full-weight product per species; other two-body reactions
+        // duplicate each momentum at the two reactant positions with half weights.
+        int const copies =
+            collision_type == CollisionType::DeuteriumHeliumToProtonHeliumFusion ? 1 : 2;
+        for (int k = 0; k < copies; ++k)
+        {
+            soa1_out.m_rdata[PIdx::ux][idx1_out_start + k] = ux1_out;
+            soa1_out.m_rdata[PIdx::uy][idx1_out_start + k] = uy1_out;
+            soa1_out.m_rdata[PIdx::uz][idx1_out_start + k] = uz1_out;
+            soa2_out.m_rdata[PIdx::ux][idx2_out_start + k] = ux2_out;
+            soa2_out.m_rdata[PIdx::uy][idx2_out_start + k] = uy2_out;
+            soa2_out.m_rdata[PIdx::uz][idx2_out_start + k] = uz2_out;
+        }
     }
 }
 

@@ -2929,10 +2929,20 @@ Details about the collision models can be found in the :ref:`theory section <mul
       since the current implementation of the collision module assumes axisymmetry.
     - ``nuclearfusion`` for fusion reactions.
       This implements the pair-wise fusion model by :cite:t:`param-HigginsonJCP2019`.
-      Currently, WarpX supports deuterium-deuterium, deuterium-tritium, deuterium-helium and proton-boron fusion.
+      Currently, WarpX supports deuterium-deuterium, deuterium-tritium, deuterium-helium, helium3-helium3 and proton-boron fusion.
       When initializing the reactant and product species, you need to use ``species_type`` (see the documentation
       for this parameter), so that WarpX can identify the type of reaction to use.
       (e.g. :pp:param:`<species_name>.species_type = 'deuterium'`)
+      Deuterium-helium3 fusion creates one full-weight proton at the deuterium position
+      and one full-weight helium4 particle at the helium3 position, preserving local charge.
+      Helium3-helium3 fusion requires ``product_species`` in the order ``helium4 proton``.
+      It creates two half-weight alpha macroparticles and four half-weight proton
+      macroparticles per event, distributed equally between the reactant positions.
+      Its cross section uses the Solar Fusion III fit up to 0.2 MeV center-of-mass energy,
+      linear interpolation through all supplied table points above that energy, and a constant value above 10 MeV.
+      The piecewise model retains an approximately 1.6% downward jump at 0.2 MeV.
+      Its three-body product model uses nonrelativistic phase-space energy sampling
+      with relativistic kinematics and isotropic emission in the breakup frames.
     - ``dsmc`` for pair-wise, non-Coulomb collisions between kinetic species.
       This is a "direct simulation Monte Carlo" treatment of collisions between
       kinetic species. See :ref:`DSMC section <multiphysics-collisions-dsmc>`.
@@ -3115,6 +3125,7 @@ Details about the collision models can be found in the :ref:`theory section <mul
 
     Only for ``nuclearfusion``. The scattering angle for the products of the fusion reaction.
     The possible values are ``isotropic``, ``forward``, ``backward``, and ``legendre``.
+    Helium3-helium3 fusion currently supports only ``isotropic``.
     With ``isotropic``, the scattering angle is drawn from an isotropic distribution.
     With ``forward``, the scattering angle is set to zero, i.e. the products are emitted in the same direction as the reactant (in the center of mass frame).
     With ``backward``, the scattering angle is set to :math:`\pi`, i.e. the products are emitted in the opposite direction of the reactant (in the center of mass frame).

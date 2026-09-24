@@ -9,6 +9,7 @@
 #define WARPX_SINGLE_NUCLEAR_FUSION_EVENT_H_
 
 #include "BoschHaleFusionCrossSection.H"
+#include "HeliumHeliumFusionCrossSection.H"
 #include "ProtonBoronFusionCrossSection.H"
 
 #include "Particles/Collision/BinaryCollision/BinaryCollisionUtils.H"
@@ -88,6 +89,10 @@ void SingleNuclearFusionEvent (const amrex::ParticleReal& u1x, const amrex::Part
     if (fusion_type == NuclearFusionType::ProtonBoronToAlphas)
     {
         fusion_cross_section = ProtonBoronFusionCrossSection(E_coll);
+    }
+    else if (fusion_type == NuclearFusionType::HeliumHelium)
+    {
+        fusion_cross_section = HeliumHeliumFusionCrossSection(E_coll);
     }
     else if (BinaryCollisionUtils::is_two_product_fusion_type(fusion_type))
     {
